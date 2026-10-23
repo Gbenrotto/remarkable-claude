@@ -1,0 +1,27 @@
+# Local builds and generated previews
+/build/
+/build-host/
+/*.png
+/*.s
+/core
+/core.*
+*.o
+
+# Credentials and tablet/private runtime data
+config.json
+config.json.new
+.env
+.env.*
+*.pem
+*.key
+known_hosts
+id_rsa*
+id_ed25519*
+.ssh/
+answers/
+captures/
+*.log
+
+# Local release archives
+*.tar.gz
+*.zip

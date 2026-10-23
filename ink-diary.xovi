@@ -1,0 +1,26 @@
+version 0.1.0
+
+depends-on xovi-message-broker:0.2.0
+depends-on rm-shot:1.2.0
+import? rm-shot$screenshotHandler:char*>char*
+
+export diary_start
+with
+    xovi-message-broker$simpleSignal = "ink-diary$start"
+    xovi-message-broker$version = 1
+end
+export diary_status
+with
+    xovi-message-broker$simpleSignal = "ink-diary$status"
+    xovi-message-broker$version = 1
+end
+export diary_cancel
+with
+    xovi-message-broker$simpleSignal = "ink-diary$cancel"
+    xovi-message-broker$version = 1
+end
+export diary_probe
+with
+    xovi-message-broker$simpleSignal = "ink-diary$probe"
+    xovi-message-broker$version = 1
+end

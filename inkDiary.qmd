@@ -1,0 +1,97 @@
+; Ink Diary 0.1.0 — OS 3.27.3.0 candidate, hardware validation required.
+; DocumentView selector from rmitchellscott/xovi-qmd-extensions (GPL-3.0-only).
+AFFECT [[1224665461898798997]]
+    IMPORT QtQuick 2.15
+    IMPORT net.asivery.XoviMessageBroker 2.0
+    TRAVERSE [[8397993708429497603]]#[[6504254477]]
+        LOCATE AFTER ALL
+        INSERT {
+            Rectangle {
+                id: inkDiaryControl
+                z: 10000
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.rightMargin: 24
+                anchors.bottomMargin: 16
+                width: 96
+                height: 96
+                color: "white"
+                border.color: "black"
+                border.width: 2
+                radius: 8
+                property bool diaryBusy: false
+                property string diaryMessage: "ChatGPT"
+                XoviMessageBroker { id: inkDiaryBroker }
+                Image {
+                    anchors.centerIn: parent
+                    width: 64
+                    height: 64
+                    source: "file:///home/root/.config/ink-diary/chatgpt.svg"
+                    sourceSize.width: 64
+                    sourceSize.height: 64
+                    visible: !inkDiaryControl.diaryBusy
+                }
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 30
+                    height: 30
+                    color: "black"
+                    visible: inkDiaryControl.diaryBusy
+                }
+                Rectangle {
+                    anchors.right: parent.right
+                    anchors.bottom: parent.top
+                    anchors.bottomMargin: 12
+                    width: 450
+                    height: statusText.implicitHeight + 28
+                    color: "white"
+                    border.color: "black"
+                    border.width: 2
+                    radius: 8
+                    visible: statusTimer.running && !inkDiaryControl.diaryBusy
+                    Text {
+                        id: statusText
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.margins: 14
+                        text: inkDiaryControl.diaryMessage
+                        font.pixelSize: 24
+                        wrapMode: Text.WordWrap
+                        color: "black"
+                    }
+                }
+                Timer { id: statusTimer; interval: 5000 }
+                MouseArea {
+                    anchors.fill: parent
+                    onPressAndHold: statusTimer.restart()
+                    onClicked: {
+                        statusTimer.stop();
+                        if (inkDiaryControl.diaryBusy) {
+                            inkDiaryBroker.sendSimpleSignal("ink-diary$cancel", "");
+                        } else {
+                            inkDiaryControl.diaryBusy = true;
+                            inkDiaryBroker.sendSimpleSignal("ink-diary$start", "");
+                        }
+                    }
+                }
+                Timer {
+                    interval: 500
+                    repeat: true
+                    running: inkDiaryControl.visible
+                    onTriggered: {
+                        try {
+                            var result = JSON.parse(inkDiaryBroker.sendSimpleSignal("ink-diary$status", ""));
+                            if (inkDiaryControl.diaryBusy && !result.busy) statusTimer.restart();
+                            inkDiaryControl.diaryBusy = result.busy;
+                            inkDiaryControl.diaryMessage = result.message;
+                        } catch (error) {
+                            inkDiaryControl.diaryBusy = false;
+                            inkDiaryControl.diaryMessage = "Ink Diary extension unavailable";
+                        }
+                    }
+                }
+            }
+        }
+    END TRAVERSE
+END AFFECT
