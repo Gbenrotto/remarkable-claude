@@ -1,4 +1,5 @@
 #include <QGuiApplication>
+#include <QFileInfo>
 #include <QFontDatabase>
 #include <QFile>
 #include <cassert>
@@ -6,8 +7,8 @@
 #include "../src/markdown.h"
 int main(int argc,char **argv){
  QGuiApplication app(argc,argv);
- int id=QFontDatabase::addApplicationFont("fonts/Caveat.ttf");assert(id>=0);
- assert(QFontDatabase::addApplicationFont("fonts/DejaVuSansMono.ttf")>=0);
+ int id=QFontDatabase::addApplicationFont(QFileInfo("fonts/Caveat.ttf").absoluteFilePath());assert(id>=0);
+ assert(QFontDatabase::addApplicationFont(QFileInfo("fonts/DejaVuSansMono.ttf").absoluteFilePath())>=0);
  QString family=QFontDatabase::applicationFontFamilies(id).first();
  QString sample=QString::fromUtf8(R"(# Markdown on your notebook
 A **bold idea**, *a little emphasis*, and ~~a correction~~. Inline code: `x = 2`.
@@ -21,7 +22,7 @@ A **bold idea**, *a little emphasis*, and ~~a correction~~. Inline code: `x = 2`
 
 ### Lists and tasks
 1. Write a question.
-2. Tap the ChatGPT icon.
+2. Tap the Claude icon.
    - The answer appears below.
    - Scroll down to read more.
 
@@ -37,12 +38,12 @@ for x in range(3):
 ```
 
 ---
-[OpenAI](https://openai.com) • Escaped \*asterisks\* • café
+[Anthropic](https://www.anthropic.com) • Escaped \*asterisks\* • café
 )");
  auto out=renderDiaryMarkdown(sample,family,1174,"Checked at: 2026-10-20 10:00 AM EDT\nSources\n[1] Example source\nhttps://example.com");
  assert(!out.image.isNull()&&out.image.width()==1174&&out.image.height()>1000);
  assert(out.html.contains("<table")&&out.html.contains("<h1")&&out.html.contains("<ol")&&out.html.contains("DejaVu Sans Mono"));
- assert(out.html.contains("**bold**")&&out.html.contains("href=\"https://openai.com\""));
+ assert(out.html.contains("**bold**")&&out.html.contains("href=\"https://www.anthropic.com\""));
  QImage preview(out.image.size(),QImage::Format_RGB32);preview.fill(Qt::white);QPainter painter(&preview);painter.drawImage(0,0,out.image);painter.end();assert(preview.save("markdown-preview.png"));
  auto unsafe=renderDiaryMarkdown("![private](file:///etc/passwd)\n\n[bad](javascript:alert)\n\n<script>alert(1)</script>",family,1174);
  assert(!unsafe.html.contains("<img")&&!unsafe.html.contains("href=\"javascript:")&&!unsafe.html.contains("<script"));

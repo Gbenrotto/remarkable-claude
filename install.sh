@@ -2,15 +2,22 @@
 set -eu
 cd -- "$(dirname -- "$0")"
 [ "$(id -u)" = 0 ] || { echo 'Run this on the tablet as root'; exit 1; }
-grep -q '^REMARKABLE_RELEASE_VERSION=3.27.3.0$' /usr/share/remarkable/update.conf || { echo 'Requires OS 3.27.3.0'; exit 1; }
-[ "$(uname -m)" = armv7l ] || { echo 'Requires reMarkable 2'; exit 1; }
+[ "$(uname -m)" = armv7l ] && grep -q 'reMarkable 2' /sys/devices/soc0/machine 2>/dev/null || { echo 'Requires reMarkable 2'; exit 1; }
+firmware=$(sed -n 's/^REMARKABLE_RELEASE_VERSION=//p' /usr/share/remarkable/update.conf)
+# Firmware versions this plugin has been run on. Others may work: the plugin checks
+# Qt compatibility at load and probes the notebook app at runtime.
+case "$firmware" in
+    3.27.3.0) ;;
+    *) echo "Warning: Ink Diary has not been tested on OS $firmware. Build bin/ink-diary.so with the SDK for this OS version."
+       echo "If the notebook app misbehaves, run uninstall.sh and restart the UI." ;;
+esac
 [ -f bin/ink-diary.so ] || { echo 'Build the plugin first'; exit 1; }
 /home/root/.vellum/bin/vellum add 'rm-shot>=1.2.0' xovi-message-broker framebuffer-spy qt-resource-rebuilder
 base=/home/root/.config/ink-diary
 mkdir -p "$base"
 chmod 700 "$base"
-cp icons/chatgpt.svg "$base/chatgpt.svg"
-chmod 644 "$base/chatgpt.svg"
+cp icons/claude.svg "$base/claude.svg"
+chmod 644 "$base/claude.svg"
 cp fonts/DejaVuSansMono.ttf "$base/DejaVuSansMono.ttf"
 chmod 644 "$base/DejaVuSansMono.ttf"
 cp fonts/Caveat.ttf "$base/Caveat.ttf"

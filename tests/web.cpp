@@ -1,4 +1,7 @@
 #include "../src/webanswer.h"
+#include <QFileInfo>
+#include "../src/api.h"
+#include "../src/reading.h"
 #include "../src/plot.h"
 #include "../src/freshness.h"
 #include <QGuiApplication>
@@ -22,36 +25,62 @@ int main(int argc,char **argv){
   DiaryAnswer a;a.command=question;diaryRequireFreshSearch(a);assert(!a.search);
  }
  DiaryAnswer graph;graph.plot=true;graph.command="plot y=x today";diaryRequireFreshSearch(graph);assert(!graph.search);
- auto timedPayload=diarySearchPayload("Weather in Lowell MA","gpt-4.1-mini","America/New_York",example);
- assert(timedPayload["instructions"].toString().contains("2026-10-19 09:42 PM EDT"));
- auto payload=diarySearchPayload("Search today's weather in Boston","gpt-4.1-mini");
- assert(payload.value("tool_choice")=="required");assert(!payload.contains("text"));
+ auto timedPayload=diarySearchPayload("Weather in Lowell MA","claude-sonnet-5-5","America/New_York",example);
+ assert(timedPayload["system"].toString().contains("2026-10-19 09:42 PM EDT"));
+ auto payload=diarySearchPayload("Search today's weather in Boston","claude-sonnet-5-5");
+ auto tool=payload["tools"].toArray()[0].toObject();assert(tool["type"]=="web_search_20250305"&&tool["name"]=="web_search");
+ // Opus 5.5 / Sonnet 5.5 reject forced tool_choice; the system prompt asks for the search instead.
+ assert(!payload.contains("tool_choice"));assert(!payload.contains("output_config"));
+ assert(payload["messages"].toArray()[0].toObject()["content"]=="Search today's weather in Boston");
+ assert(diaryWithFallbacks(payload).value("fallbacks")=="default");
+ assert(!diaryWithFallbacks(diarySearchPayload("q","claude-haiku-5-5")).contains("fallbacks"));
  auto route=decodeDiaryAnswer(R"JSON({"kind":"search","text":"weather in Boston today"})JSON");assert(route.search&&!route.plot);
- auto root=QJsonDocument::fromJson(R"JSON({"status":"completed","output":[{"type":"web_search_call","status":"completed"},{"type":"message","content":[{"type":"output_text","text":"A fact.","annotations":[{"type":"url_citation","start_index":0,"end_index":7,"url":"https://example.org/a?x=1&y=2","title":"A <source>"}]}]}]})JSON").object();
- auto result=parseDiarySearch(root);assert(result.text=="A fact. [1]");assert(result.sources.size()==1);
+ // Shape of the documented Messages API web search response: preamble, search call, results, cited text.
+ auto root=QJsonDocument::fromJson(R"JSON({"role":"assistant","stop_reason":"end_turn","content":[
+  {"type":"text","text":"I'll search for when Claude Shannon was born."},
+  {"type":"server_tool_use","id":"srvtoolu_01","name":"web_search","input":{"query":"claude shannon birth date"}},
+  {"type":"web_search_tool_result","tool_use_id":"srvtoolu_01","content":[{"type":"web_search_result","url":"https://en.wikipedia.org/wiki/Claude_Shannon","title":"Claude Shannon - Wikipedia","encrypted_content":"Eqgf","page_age":"April 30, 2025"}]},
+  {"type":"text","text":"Based on the search results, "},
+  {"type":"text","text":"Claude Shannon was born on April 30, 1916, in Petoskey, Michigan","citations":[{"type":"web_search_result_location","url":"https://en.wikipedia.org/wiki/Claude_Shannon","title":"Claude <Shannon> - Wikipedia","encrypted_index":"Eo8B","cited_text":"Claude Elwood Shannon (April 30, 1916 ..."}]},
+  {"type":"text","text":". He also studied at MIT.","citations":[{"type":"web_search_result_location","url":"https://example.org/a?x=1&y=2","title":"","encrypted_index":"x","cited_text":"..."},{"type":"web_search_result_location","url":"https://en.wikipedia.org/wiki/Claude_Shannon","title":"Claude Shannon - Wikipedia","encrypted_index":"y","cited_text":"..."}]}
+ ]})JSON").object();
+ auto result=parseDiarySearch(root);
+ assert(result.text=="Based on the search results, Claude Shannon was born on April 30, 1916, in Petoskey, Michigan [1]. He also studied at MIT. [2][1]");
+ assert(result.sources.size()==2);assert(result.sources[1].title=="example.org");
  result.checkedAt=local;assert(diarySourcesText(result).contains("Checked at: "+local));
- auto html=diarySourcesHtml(result);assert(html.contains("09:42 PM EDT"));assert(html.contains("href=\"https://example.org/a?x=1&amp;y=2\""));assert(!html.contains("A <source>"));
- assert(diarySourcesText(result).contains("https://example.org/a"));
- auto output=root.value("output").toArray();output.removeAt(0);root.insert("output",output);
+ auto html=diarySourcesHtml(result);assert(html.contains("09:42 PM EDT"));assert(html.contains("href=\"https://example.org/a?x=1&amp;y=2\""));assert(!html.contains("Claude <Shannon>"));
+ assert(diarySourcesText(result).contains("https://en.wikipedia.org/wiki/Claude_Shannon"));
+ // A turn with no search result must not be shown as a web answer.
+ auto content=root["content"].toArray();content.removeAt(2);root["content"]=content;
  bool rejected=false;try{parseDiarySearch(root);}catch(...){rejected=true;}assert(rejected);
- root=QJsonDocument::fromJson(R"JSON({"status":"completed","output":[{"type":"web_search_call","status":"completed"},{"type":"message","content":[{"type":"output_text","text":"Unverified","annotations":[]}]}]})JSON").object();
- result=parseDiarySearch(root);assert(result.text=="Unverified");assert(result.sources.isEmpty());
+ // Search errors arrive as HTTP 200 with an error object instead of a result list.
+ auto failed=QJsonDocument::fromJson(R"JSON({"stop_reason":"end_turn","content":[{"type":"server_tool_use","id":"s","name":"web_search","input":{"query":"q"}},
+  {"type":"web_search_tool_result","tool_use_id":"s","content":{"type":"web_search_tool_result_error","error_code":"too_many_requests"}},{"type":"text","text":"Sorry."}]})JSON").object();
+ try{parseDiarySearch(failed);assert(false);}catch(const std::runtime_error &e){assert(QString(e.what()).contains("too_many_requests"));}
+ // A completed search with uncited text keeps the answer and reports missing links.
+ auto uncited=QJsonDocument::fromJson(R"JSON({"stop_reason":"end_turn","content":[{"type":"web_search_tool_result","tool_use_id":"s","content":[]},{"type":"text","text":"Unverified"}]})JSON").object();
+ result=parseDiarySearch(uncited);assert(result.text=="Unverified");assert(result.sources.isEmpty());
  assert(diarySourcesText(result).contains("no source links"));assert(diarySourcesHtml(result).contains("no source links"));
- // Hosted weather's uncited UTC preamble must not override the local clock.
- auto weatherRoot=root;auto wo=weatherRoot["output"].toArray();auto wm=wo[1].toObject();auto wc=wm["content"].toArray();auto wt=wc[0].toObject();
- wt["text"]="As of 1:42 AM on Tuesday, October 20, 2026, the weather is clear.\n\n## Weather for Lowell, MA:\nCurrent Conditions: Clear, 41 F";
- wc[0]=wt;wm["content"]=wc;wo[1]=wm;weatherRoot["output"]=wo;
- auto weather=parseDiarySearch(weatherRoot);assert(!weather.text.contains("1:42"));assert(weather.text.startsWith("Weather for Lowell"));assert(weather.text.contains("41 F"));
- weather.checkedAt=local;assert(diarySourcesText(weather).contains("09:42 PM EDT"));
- // Real API citation style: replace the link markup with a compact marker.
- root=QJsonDocument::fromJson(R"JSON({"status":"completed","output":[{"type":"web_search_call","status":"completed"},{"type":"message","content":[{"type":"output_text","text":"Fact. ([example.org](https://example.org))","annotations":[{"type":"url_citation","start_index":6,"end_index":42,"url":"https://example.org","title":""}]}]}]})JSON").object();
- // Derive the fixture's end from its actual text to avoid incidental counting errors.
- auto items=root["output"].toArray();auto message=items[1].toObject();auto contents=message["content"].toArray();auto c=contents[0].toObject();auto annotations=c["annotations"].toArray();auto citation=annotations[0].toObject();citation["end_index"]=c["text"].toString().size();annotations[0]=citation;c["annotations"]=annotations;contents[0]=c;message["content"]=contents;items[1]=message;root["output"]=items;
- result=parseDiarySearch(root);assert(result.text=="Fact. [1]");assert(result.sources[0].title=="example.org");
+ // pause_turn resumes by sending the paused assistant content back unchanged.
+ auto paused=QJsonDocument::fromJson(R"JSON({"stop_reason":"pause_turn","content":[{"type":"server_tool_use","id":"s","name":"web_search","input":{"query":"q"}}]})JSON").object();
+ rejected=false;try{parseDiarySearch(paused);}catch(...){rejected=true;}assert(rejected);
+ auto resumed=diaryContinueSearch(payload,paused);auto msgs=resumed["messages"].toArray();
+ assert(msgs.size()==2&&msgs[1].toObject()["role"]=="assistant"&&msgs[1].toObject()["content"]==paused["content"]);
+ // Refusals and truncation surface as errors, not as answers.
+ for(auto stop:{"refusal","max_tokens"}){auto r=uncited;r["stop_reason"]=stop;rejected=false;try{parseDiarySearch(r);}catch(...){rejected=true;}assert(rejected);}
+ // A circled word plus "tell me about these" must scope to the marked words (2026-10-25 regression:
+ // without this rule 4 of 5 live runs also answered about the unmarked basking shark).
+ {auto reading=diaryReadingPayload(QByteArray("png"),QJsonObject{{"model","claude-sonnet-5-5"}})["system"].toString();
+  assert(reading.contains("Handwritten circles, underlines, brackets and lines drawn from text"));assert(reading.contains("answer only about the marked part"));}
+ // Live claude-sonnet-5-5 response (encrypted fields stripped): search, results, cited text split over blocks.
+ {QFile live("tests/fixtures/search-tallest-building.json");assert(live.open(QIODevice::ReadOnly));
+  auto tallest=parseDiarySearch(QJsonDocument::fromJson(live.readAll()).object());
+  assert(tallest.sources.size()==1&&tallest.sources[0].url=="https://en.wikipedia.org/wiki/List_of_tallest_buildings");
+  assert(tallest.text.startsWith("**Burj Khalifa**, Dubai, UAE."));assert(tallest.text.contains("completed in 2010. [1]"));}
  if(argc>1){
   QFile input(QString::fromLocal8Bit(argv[1]));assert(input.open(QIODevice::ReadOnly));
   auto live=parseDiarySearch(QJsonDocument::fromJson(input.readAll()).object());live.checkedAt=local;
-  int id=QFontDatabase::addApplicationFont("fonts/Caveat.ttf");assert(id>=0);
+  int id=QFontDatabase::addApplicationFont(QFileInfo("fonts/Caveat.ttf").absoluteFilePath());assert(id>=0);
   QFont font(QFontDatabase::applicationFontFamilies(id).first());font.setPixelSize(48);font.setWeight(QFont::Medium);QFontMetrics fm(font);
   for(auto ch:live.text)assert(ch.isSpace()||fm.inFont(ch));
   QRect box=fm.boundingRect(QRect(0,0,1150,10000),Qt::TextWordWrap,live.text);
@@ -59,5 +88,5 @@ int main(int argc,char **argv){
   QString sources=diarySourcesText(live);QRect sb=sm.boundingRect(QRect(0,0,1150,10000),Qt::TextWrapAnywhere,sources);
   QImage image(1174,box.height()+54+sb.height(),QImage::Format_ARGB32);image.fill(Qt::white);QPainter p(&image);p.setPen(Qt::black);p.setFont(font);p.drawText(QRect(12,8,1150,box.height()+8),Qt::TextWordWrap,live.text);p.setFont(sourceFont);p.drawText(QRect(12,box.height()+34,1150,sb.height()+8),Qt::TextWrapAnywhere,sources);p.end();assert(image.save(argc>2?QString::fromLocal8Bit(argv[2]):QString("web-answer-preview.png")));
  }
- std::cout<<"PASS: Eastern date rollover and DST, checked-at timestamp, search routing, required tool, real citation metadata, escaped links and missing-source notice/no-search rejection\n";
+ std::cout<<"PASS: Eastern date rollover and DST, checked-at timestamp, search routing, search payload, citation markers, escaped links, search errors, pause_turn resume, missing-source notice/no-search rejection\n";
 }

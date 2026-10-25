@@ -43,16 +43,16 @@ public:
     explicit PlotExpression(QString expression):source(expression){if(source.isEmpty()||source.size()>160)bad();eval(0);}
     double eval(double x){pos=0;variable=x;double v=sum();take(QChar(0));if(pos!=source.size())bad();return v;}
 };
-struct DiaryAnswer {QString text,expression,command;double xmin=-5,xmax=5;bool plot=false,search=false,image=false,calendar=false;QString diagram;int cellLines=1;};
+struct DiaryAnswer {QString text,expression,command;double xmin=-5,xmax=5;bool plot=false,search=false,calendar=false;QString diagram;int cellLines=1;};
 inline DiaryAnswer decodeDiaryAnswer(const QString &raw){
     auto doc=QJsonDocument::fromJson(raw.toUtf8());
     if(!doc.isObject())throw std::runtime_error("Could not read structured answer; please try again");
     auto obj=doc.object();DiaryAnswer result;result.command=obj.value("command").toString().trimmed();
     QString kind=obj.value("kind").toString();
-    if(kind=="image" || kind=="mermaid" || kind=="venn") {
+    if(kind=="mermaid" || kind=="venn") {
         result.text=obj.value("text").toString().trimmed();
         if(result.text.isEmpty() || result.text.size()>12000)throw std::runtime_error("Visual description missing or too long");
-        result.image=kind=="image";if(!result.image)result.diagram=kind;return result;
+        result.diagram=kind;return result;
     }
     if(kind=="calendar") {result.calendar=true;result.cellLines=diaryTemplateCellLines(obj.value("template").toObject());result.text=diaryTemplateMarkdown("table",diaryCalendarTemplate(obj.value("calendar").toObject(),result.cellLines));return result;}
     if(kind=="checklist"||kind=="table") {result.text=diaryTemplateMarkdown(kind,obj.value("template").toObject());if(kind=="table")result.cellLines=diaryTemplateCellLines(obj.value("template").toObject());return result;}
@@ -74,11 +74,11 @@ inline DiaryAnswer decodeDiaryAnswer(const QString &raw){
 inline QJsonObject diaryAnswerFormat(){
     QJsonObject props;
     for(auto name:{"kind","text","command","expression"})props.insert(name,QJsonObject{{"type","string"}});
-    props.insert("kind",QJsonObject{{"type","string"},{"enum",QJsonArray{"text","plot","search","checklist","table","image","mermaid","venn","calendar"}}});
+    props.insert("kind",QJsonObject{{"type","string"},{"enum",QJsonArray{"text","plot","search","checklist","table","mermaid","venn","calendar"}}});
     props.insert("template",diaryTemplateSchema());
     props.insert("calendar",diaryCalendarSchema());
     props.insert("xmin",QJsonObject{{"type","number"}});props.insert("xmax",QJsonObject{{"type","number"}});
-    return {{"type","json_schema"},{"name","ink_diary_answer"},{"strict",true},
+    return {{"type","json_schema"},
         {"schema",QJsonObject{{"type","object"},{"properties",props},{"additionalProperties",false},
         {"required",QJsonArray{"kind","text","command","expression","xmin","xmax","template","calendar"}}}}};
 }

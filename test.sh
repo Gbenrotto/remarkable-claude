@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd -- "$(dirname -- "$0")"
+# Timezone abbreviations (EDT/EST) in the clock tests depend on the locale.
+export LC_ALL=en_US.UTF-8
 mkdir -p build-host
 c++ -std=c++17 -fPIC tests/core.cpp -o build-host/core $(pkg-config --cflags --libs Qt6Gui Qt6Core)
 QT_QPA_PLATFORM=offscreen ./build-host/core "$@"
 c++ -std=c++17 -fPIC tests/plot.cpp -o build-host/plot $(pkg-config --cflags --libs Qt6Gui Qt6Core)
 QT_QPA_PLATFORM=offscreen ./build-host/plot
-c++ -std=c++17 -fPIC tests/web.cpp -o build-host/web $(pkg-config --cflags --libs Qt6Gui Qt6Core)
+c++ -std=c++17 -fPIC tests/web.cpp -o build-host/web $(pkg-config --cflags --libs Qt6Network Qt6Gui Qt6Core)
 QT_QPA_PLATFORM=offscreen ./build-host/web
 c++ -std=c++17 -fPIC tests/markdown.cpp -o build-host/markdown $(pkg-config --cflags --libs Qt6Gui Qt6Core)
 QT_QPA_PLATFORM=offscreen ./build-host/markdown

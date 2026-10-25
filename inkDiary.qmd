@@ -1,4 +1,4 @@
-; Ink Diary 0.1.0 — OS 3.27.3.0 candidate, hardware validation required.
+; Ink Diary for Claude — notebook button (reMarkable 2).
 ; DocumentView selector from rmitchellscott/xovi-qmd-extensions (GPL-3.0-only).
 AFFECT [[1224665461898798997]]
     IMPORT QtQuick 2.15
@@ -9,10 +9,13 @@ AFFECT [[1224665461898798997]]
             Rectangle {
                 id: inkDiaryControl
                 z: 10000
+                // Framed button centred in the toolbar cell under the close button (rM2
+                // portrait toolbar: 112 px cells). diary.cpp masks this rect out of
+                // the page capture.
                 anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.rightMargin: 24
-                anchors.bottomMargin: 16
+                anchors.top: parent.top
+                anchors.topMargin: 120
+                anchors.rightMargin: 8
                 width: 96
                 height: 96
                 color: "white"
@@ -20,28 +23,29 @@ AFFECT [[1224665461898798997]]
                 border.width: 2
                 radius: 8
                 property bool diaryBusy: false
-                property string diaryMessage: "ChatGPT"
+                property string diaryMessage: "Claude"
                 XoviMessageBroker { id: inkDiaryBroker }
                 Image {
                     anchors.centerIn: parent
-                    width: 64
-                    height: 64
-                    source: "file:///home/root/.config/ink-diary/chatgpt.svg"
-                    sourceSize.width: 64
-                    sourceSize.height: 64
+                    width: 44
+                    height: 44
+                    source: "file:///home/root/.config/ink-diary/claude.svg"
+                    sourceSize.width: 44
+                    sourceSize.height: 44
                     visible: !inkDiaryControl.diaryBusy
                 }
                 Rectangle {
                     anchors.centerIn: parent
-                    width: 30
-                    height: 30
+                    width: 26
+                    height: 26
                     color: "black"
                     visible: inkDiaryControl.diaryBusy
                 }
                 Rectangle {
                     anchors.right: parent.right
-                    anchors.bottom: parent.top
-                    anchors.bottomMargin: 12
+                    anchors.top: parent.bottom
+                    anchors.topMargin: 8
+                    anchors.rightMargin: 12
                     width: 450
                     height: statusText.implicitHeight + 28
                     color: "white"

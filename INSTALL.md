@@ -1,92 +1,114 @@
-# Ink Diary 4.1 — installation and configuration
+# Ink Diary for Claude — installation and configuration
+
+This takes about 15 minutes. Steps 1–6 were run exactly as written on a reMarkable 2 with OS 3.28.0.172 on 2026-10-25.
 
 ## Requirements
 
-- **reMarkable 2 running exactly OS 3.27.3.0.** This build is not compatible with other tablets or firmware versions. The installer and plugin enforce this requirement; do not bypass it.
-- Working SSH access and Vellum/XOVI on the tablet. Install reManager from its [official releases](https://github.com/rmitchellscott/reManager/releases), connect your tablet, and set up Vellum. Install `xovi` and `qt-resource-rebuilder` through its package manager before proceeding. See the [official reManager guide](https://github.com/rmitchellscott/reManager/blob/main/README.md).
-- Tablet internet access for dependency installation and API requests.
-- Your own OpenAI API key and API billing/access for the models you use. ChatGPT subscription access alone does not configure this plugin. This bundle contains no working key.
+- **reMarkable 2.** The checked-in plugin is built for OS 3.28.0.172 (Qt 6.10.3); check yours under Settings → General → Help → About. Other OS versions need a build with their matching SDK (see "Build and test" in README.md). The installer warns on untested versions, and the plugin refuses to load on an incompatible Qt.
+- A computer with `ssh` and `git` (macOS or Linux), and a USB cable.
+- Tablet Wi-Fi, for package downloads and API requests.
+- An Anthropic API key with credits. In the [Claude Console](https://platform.claude.com), add credits under **Billing**, then use **API Keys → Create Key** and copy it (it starts with `sk-ant-` and is shown only once). A Claude.ai subscription does not include API access.
 
-This is a manual installation bundle, not a published reManager catalog package. The ARM plugin is already built; recipients do not need a compiler. Source and license files are included. Keep a backup of your notebooks before installing third-party extensions. Remove this plugin before upgrading firmware until the new version has been tested.
+The plugin, xovi and Vellum all install under `/home/root`; the system partition is not modified. xovi is *tethered*: a reboot always returns the tablet to stock, and step 6 brings the plugin back. Notebooks are unaffected, but keep them synced or backed up anyway.
 
-## 1. Get the files and transfer them
+## 1. Enable SSH access
 
-Clone this repository or download and extract its source ZIP on your computer. The repository includes prebuilt ARM binaries in `bin/`, so no compilation is required to install this version.
+Connect the tablet over USB. The root password is at the bottom of **Settings → General → Help → About → Copyrights and licenses → GPLv3 Compliance**, along with the tablet's IP addresses (`10.11.99.1` over USB).
 
-Use reManager's file browser to create `/home/root/ink-diary-v4.1` on your tablet and upload the repository contents into it, including `bin`, `fonts`, `icons`, the scripts and `SHA256SUMS`. Do not upload `.git` or any personal configuration. Transfer these as files, not notebook documents.
-
-Alternatively, from a terminal in your local repository, replace TABLET_IP with your tablet's reachable address:
+On your computer, install a key so you don't need the password again:
 
 ```sh
-git archive --format=tar HEAD | ssh root@TABLET_IP 'mkdir -p /home/root/ink-diary-v4.1 && tar -xf - -C /home/root/ink-diary-v4.1'
+ssh-keygen -t ed25519 -f ~/.ssh/remarkable_ed25519 -N ""
+ssh-copy-id -i ~/.ssh/remarkable_ed25519.pub root@10.11.99.1     # enter the tablet password once
+printf 'Host remarkable\n  HostName 10.11.99.1\n  User root\n  IdentityFile ~/.ssh/remarkable_ed25519\n' >> ~/.ssh/config
+ssh remarkable 'grep RELEASE_VERSION /usr/share/remarkable/update.conf'
 ```
 
-This transfers only committed files. Use a new/empty destination folder to avoid mixing versions.
+The commands below use the `remarkable` host alias.
 
-If using the separately distributed `ink-diary-v4.1.tar.gz` installation bundle instead, upload it and its `.sha256` file to `/home/root`, verify with `sha256sum -c ink-diary-v4.1.sha256`, then extract with `tar -xzf ink-diary-v4.1.tar.gz`. The repository does not duplicate that archive; it contains the unpacked implementation.
+## 2. Install Vellum and xovi
 
-## 2. Verify and install
-
-Finish writing and return to the tablet's library. Open reManager's terminal (these commands run on the tablet as root):
+[Vellum](https://github.com/vellum-dev/vellum-cli) is the package manager; [xovi](https://github.com/asivery/rm-xovi-extensions) loads extensions into the notebook app. On the tablet (`ssh remarkable`):
 
 ```sh
-cd /home/root/ink-diary-v4.1
-sha256sum -c SHA256SUMS
+wget --no-check-certificate -O bootstrap.sh https://github.com/vellum-dev/vellum-cli/releases/latest/download/bootstrap.sh
+echo "7b0deebc81b28a7d74d95c85e99a4a0a0f6ecaa5b9edb6b858ac61405978ebb9  bootstrap.sh" | sha256sum -c && bash bootstrap.sh
+export PATH=/home/root/.vellum/bin:$PATH
+vellum add xovi
 ```
 
-All entries must say `OK`. These checksums describe this checked-in release; rebuilding or editing files requires regenerating them for a new release. Then install:
+The checksum is the one published in the Vellum README; if it doesn't match, the bootstrap script was updated, so take the current command from there. The bootstrap verifies everything it downloads.
+
+## 3. Copy this repository to the tablet
+
+On your computer:
 
 ```sh
+git clone https://github.com/jonaslaberg/remarkable-claude ink-diary-claude
+cd ink-diary-claude
+git archive --format=tar HEAD | ssh remarkable 'rm -rf /home/root/ink-diary-claude && mkdir -p /home/root/ink-diary-claude && tar -xf - -C /home/root/ink-diary-claude'
+```
+
+## 4. Verify and install
+
+On the tablet:
+
+```sh
+cd /home/root/ink-diary-claude
+sha256sum -c SHA256SUMS | grep -v ': OK$'     # prints nothing when every file verifies
+export PATH=/home/root/.vellum/bin:$PATH
 sh install.sh
 ```
 
-The installer checks hardware/firmware, installs screenshot/message-broker dependencies through Vellum, and copies the plugin, notebook patch, fonts, icon and configuration helper. It preserves an existing API configuration. If installation reports an error, resolve it before restarting the notebook app.
+The installer checks the hardware and OS, installs xovi's extensions through Vellum (`qt-resource-rebuilder`, `xovi-message-broker`, `framebuffer-spy`, `rm-shot`), and copies the plugin, notebook patch, fonts, icon and configuration helper. It keeps an existing API configuration.
 
-## 3. Configure your own API key
+Then build xovi's hashtable, which maps the notebook app's internal names so the patch can find where to put the button. **This step is required; without it the button never appears.** Run it once after installing, and again after every OS update:
 
-For a new installation:
+```sh
+bash /home/root/xovi/rebuild_hashtable
+```
+
+It stops the notebook app and asks you to press Enter. The app then runs once on its own; if the tablet shows its passcode screen, enter your passcode. It ends by itself when it prints `Hashtable rebuilt`.
+
+## 5. Configure your API key
 
 ```sh
 sh /home/root/.config/ink-diary/configure.sh
 ```
 
-Enter your API key at the hidden prompt, then select the text/vision model. Pressing Enter at the model prompt uses `gpt-4.1-mini`. The model must support image input and Structured Outputs in the Responses API; web lookup additionally needs web-search tool support. Availability depends on your account.
+Paste your API key at the hidden prompt, then press Enter at the model prompt for the default, `claude-sonnet-5-5`. Any Claude model that supports image input and structured outputs works, for example `claude-opus-5-5` (slower, more capable) or `claude-haiku-5-5` (fastest, cheapest). Web search also needs the web search tool, which an organization admin can disable in the Claude Console.
 
-The key is stored only on your tablet in `/home/root/.config/ink-diary/config.json`, with owner-only permissions. Do not share that file or post it in troubleshooting screenshots. No key is sent to the bundle's author. Requests go directly from your tablet to OpenAI.
+The key is stored only on your tablet in `/home/root/.config/ink-diary/config.json`, with owner-only permissions. Requests go directly from your tablet to Anthropic. Don't share that file.
 
-**Upgrading an existing installation:** skip this full configuration step to retain your key and preferences. Running the full configuration command replaces the settings file. To change only the text model while preserving your key and other settings, replace MODEL_NAME below with your chosen model:
+To change only the model later, keeping your key and other settings: `sh /home/root/.config/ink-diary/configure.sh --model MODEL_NAME`. Settings are read on each tap, so no restart is needed.
 
-```sh
-sh /home/root/.config/ink-diary/configure.sh --model MODEL_NAME
-```
+Optional settings can be added to `config.json` (keep the JSON valid and run `chmod 600` on it afterwards):
 
-Settings are read on each tap; configuration changes do not require a restart.
+- `timezone`: IANA timezone name, such as `Europe/London`. Default: `America/New_York`. Used for "today", "now" and the checked-at time on web answers.
+- `effort`: `low`, `medium`, `high`, `xhigh` or `max`. Trades answer depth for speed and cost. Default: the model's own default (`high` on Sonnet 5.5, `medium` on Opus 5.5 and Haiku 5.5). `low` gives the snappiest answers.
+- `demo_mode`: `true` for an offline fixed handwriting sample, `false` for normal API use. Demo mode does not test diagrams or calendars.
 
-Optional settings can be added to your existing JSON file using a private editor, retaining its api_key and model fields:
-
-- `timezone`: IANA timezone name, such as `Europe/London`. Default: `America/New_York`.
-- `image_model`: separate image-generation model. Default: `gpt-image-1.5`. A replacement must support the Images API parameters used by this plugin.
-- `demo_mode`: `true` for an offline fixed handwriting sample, `false` for normal API use. Demo mode does not test diagrams, calendars or image generation.
-
-After manual editing, keep the JSON valid and restrict permissions:
+## 6. Start Ink Diary (and after every reboot)
 
 ```sh
-chmod 600 /home/root/.config/ink-diary/config.json
+bash /home/root/xovi/start
 ```
 
-## 4. Start Ink Diary
+This restarts the notebook app with the extensions loaded; the screen returns to the library. Open a notebook in portrait orientation at normal zoom; the Claude button (an asterisk) appears at the top right, just under the toolbar's close button.
 
-Return to the library, then run:
+**After every reboot the button is gone**, because xovi deliberately doesn't start on boot. Don't make xovi start automatically by editing systemd files: xovi's README warns this can leave the tablet stuck in a boot loop. Instead, use one of these:
 
-```sh
-setsid bash /home/root/xovi/start >/tmp/ink-diary-start.log 2>&1 </dev/null &
-```
-
-This restarts the notebook app. A full tablet reboot is unnecessary. Open a notebook in portrait orientation at normal zoom; the ChatGPT icon appears at the bottom-right. If extensions are not automatically loaded after a future reboot, run the same start command from the library.
+- **Without a computer (recommended):** install [xovi-tripletap](https://github.com/rmitchellscott/xovi-tripletap), the starter the xovi README recommends. Then **triple-press the power button** after a reboot to start xovi.
+  ```sh
+  export PATH=/home/root/.vellum/bin:$PATH
+  vellum add tripletap
+  ```
+  It adds a small systemd service (`xovi-tripletap`) to the system partition that only listens for the power button; a plain reboot still comes up stock. Remove it with `vellum del tripletap`. After an OS update, run `vellum reenable` to restore it.
+- **Over SSH:** run `bash /home/root/xovi/start` again.
 
 ## 5. Use it
 
-Write in the visible page area, away from the left toolbar and bottom-right icon. The top edge is included. Tap the icon and keep the page still while it works. Tap the stop square to cancel. Hold the icon to see status.
+Write in the visible page area, away from the Claude button in the top-right corner. The top edge is included. Tap the icon and keep the page still while it works. Tap the stop square to cancel. Hold the icon to see status.
 
 Try:
 
@@ -96,17 +118,16 @@ Try:
 - `Create a 10 item checklist without labels`
 - `plot y=x^2`
 - `Search the weather in Lowell MA right now`
-- `Generate a three-panel black-and-white comic about a robot growing a flower`
 - `Create a Venn diagram comparing cats and dogs`
 
-Answers append below existing content and may extend the page; scroll down to see them. They are image objects, not editable pen strokes. Mermaid supports flowcharts and sequence diagrams, not every Mermaid type. Venn diagrams support two or three sets. Generated artwork is converted to grayscale; it can take several minutes and incurs image API charges. Cancellation cannot guarantee cancellation of server-side billing.
+Answers append below existing content and may extend the page; scroll down to see them. They are image objects, not editable pen strokes. Mermaid supports flowcharts and sequence diagrams, not every Mermaid type. Venn diagrams support two or three sets. Cancellation stops the local request but cannot guarantee cancellation of server-side billing. Image generation is not supported; Claude replies with a short note instead.
 
 ## Troubleshooting
 
-- **Unsupported OS/hardware:** this release only supports reMarkable 2 on 3.27.3.0. Do not alter the compatibility checks.
-- **No icon:** check installation completed and restart through `/home/root/xovi/start`. Open a notebook, not just the library.
-- **Extension unavailable:** verify XOVI and its dependencies loaded. A reboot alone may not start XOVI in every installation.
-- **HTTP/API error:** check Wi-Fi, API billing, key and selected model/tool access. Never share your configuration file to diagnose this.
+- **Unsupported OS/hardware:** only the reMarkable 2 is supported. If the icon is missing on a new OS version, check `/tmp/ink-diary-start.log` for a Qt-version message and rebuild with that version's SDK.
+- **No icon:** check that installation completed and that you ran `xovi/rebuild_hashtable`, then run `xovi/start`. After a reboot you always need `xovi/start` again. Open a notebook, not just the library.
+- **Check the plugin loaded:** `grep ink-diary.so /proc/$(pidof xochitl)/maps` prints a line when it's loaded. `journalctl -u xochitl -b | grep -i -E 'qmldiff|ink-diary'` shows whether the patch applied (`Processing file .../DocumentView.qml`) and any Qt-version message.
+- **HTTP/API error:** the status message shows the API's error text. Check Wi-Fi, API billing, key and model name. Never share your configuration file to diagnose this.
 - **Page changed:** keep the page still until the response finishes, then retry.
 - **Response below the screen:** scroll down. Existing answers are not automatically replaced or corrected.
 - **Diagram error:** request a simpler flowchart/sequence diagram with short labels. Limits are described in README.md.
@@ -114,7 +135,7 @@ Answers append below existing content and may extend the page; scroll down to se
 ## Remove or restore
 
 ```sh
-cd /home/root/ink-diary-v4.1
+cd /home/root/ink-diary-claude
 sh uninstall.sh
 ```
 
@@ -126,4 +147,4 @@ To restore this version later, verify the archive, run its installer, and restar
 
 Share this repository or a release archive made from its committed files, together with this guide. Do not create a new archive from your tablet's installed configuration or answer directories. The included `config.example.json` contains only a placeholder. API credentials, notebook content, diagnostic screenshots and generated artwork are excluded from this release.
 
-The visible notebook crop is sent to OpenAI when you tap the button. Requested image creation sends an additional story/art prompt to OpenAI. Rendering diagrams is local after transcription. See README.md for network behavior and limits, THIRD_PARTY.md for attribution, and LICENSE for redistribution terms.
+The visible notebook crop is sent to Anthropic when you tap the button. Web searches send the rewritten question in a second request. Rendering diagrams is local after transcription. See README.md for network behavior and limits, THIRD_PARTY.md for attribution, and LICENSE for redistribution terms.

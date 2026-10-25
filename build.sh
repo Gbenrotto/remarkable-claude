@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd -- "$(dirname -- "$0")"
-: "${SDK_ENV:?Set SDK_ENV to the official rM2 3.27 SDK environment-setup file}"
+: "${SDK_ENV:?Set SDK_ENV to the environment-setup file of the official rM2 SDK matching your OS version}"
 : "${XOVI_REPO:?Set XOVI_REPO to the xovi source checkout}"
 set +u
 source "$SDK_ENV"
@@ -16,5 +16,5 @@ mkdir -p ../bin
 cp ink-diary.so ../bin/ink-diary.so
 $STRIP --strip-unneeded ../bin/ink-diary.so
 
-$CXX -std=c++17 -fPIC ../src/config-model.cpp -o ../bin/config-model $(pkg-config --cflags --libs Qt6Core)
+$CXX -std=c++17 -fPIC -ffile-prefix-map="$HOME"=/build-home ../src/config-model.cpp -o ../bin/config-model $(pkg-config --cflags --libs Qt6Core)
 $STRIP --strip-unneeded ../bin/config-model

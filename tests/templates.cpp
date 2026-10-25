@@ -1,4 +1,5 @@
 #include "../src/plot.h"
+#include <QFileInfo>
 #include "../src/markdown.h"
 #include <QGuiApplication>
 #include <QFontDatabase>
@@ -14,7 +15,7 @@ int main(int argc,char **argv){QGuiApplication app(argc,argv);
  DiaryMarkdownDocument doc;doc.setMarkdown(text,QTextDocument::MarkdownDialectGitHub);auto table=dynamic_cast<QTextTable*>(doc.rootFrame()->childFrames().first());assert(table&&table->rows()==11&&table->columns()==2);
  t["rows"]=QJsonArray{QJsonArray{"one"}};failed=false;try{decode("table");}catch(...){failed=true;}assert(failed);
  t["rows"]=QJsonArray();t["count"]=1e100;failed=false;try{decode("table");}catch(...){failed=true;}assert(failed);
- t["count"]=5;t["title"]="Pros and cons";int id=QFontDatabase::addApplicationFont("fonts/Caveat.ttf");assert(id>=0);auto rendered=renderDiaryMarkdown(decode("table"),QFontDatabase::applicationFontFamilies(id).first(),1174);
+ t["count"]=5;t["title"]="Pros and cons";int id=QFontDatabase::addApplicationFont(QFileInfo("fonts/Caveat.ttf").absoluteFilePath());assert(id>=0);auto rendered=renderDiaryMarkdown(decode("table"),QFontDatabase::applicationFontFamilies(id).first(),1174);
  QImage preview(rendered.image.size(),QImage::Format_RGB32);preview.fill(Qt::white);QPainter p(&preview);p.drawImage(0,0,rendered.image);p.end();assert(preview.save("template-table-preview.png"));
  t["cell_lines"]=3;auto answer=decodeDiaryAnswer(QJsonDocument(QJsonObject{{"kind","table"},{"template",t}}).toJson());assert(answer.cellLines==3);
  auto tall=renderDiaryMarkdown(answer.text,QFontDatabase::applicationFontFamilies(id).first(),1174,QString(),{},answer.cellLines);

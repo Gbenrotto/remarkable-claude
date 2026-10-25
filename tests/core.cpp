@@ -1,4 +1,5 @@
 #include <cassert>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QJsonDocument>
 #include <QFontDatabase>
@@ -14,6 +15,12 @@ int main(int argc,char **argv) {
     // exact production crop, including its unchanged bottom/right boundaries.
     const QRect captureArea=diaryCaptureArea();
     assert(captureArea==QRect(150,0,1174,1752));
+    // The Claude button sits under the toolbar's close button; it is masked out of every capture.
+    assert(diaryButtonRect()==QRect(1292,112,112,112));
+    {QImage withButton(1404,1872,QImage::Format_RGB32);withButton.fill(Qt::white);
+     {QPainter p(&withButton);p.fillRect(diaryButtonRect().adjusted(40,40,-40,-40),Qt::black);}
+     diaryMaskControls(withButton);assert(lastInkRow(withButton.copy(captureArea))==-1);
+     assert(withButton.pixelColor(1348,168)==QColor(Qt::white));}
     QImage screen(1404,1872,QImage::Format_RGB32);screen.fill(Qt::white);
     screen.setPixelColor(500,0,Qt::black);
     screen.setPixelColor(500,90,Qt::black);
@@ -61,12 +68,14 @@ int main(int argc,char **argv) {
         assert(bottom>=480 && bottom<550);
     }
     auto parse=[](const char *json) {return responseText(QJsonDocument::fromJson(json).object());};
-    assert(parse(R"({"status":"completed","output":[{"type":"reasoning","summary":[]},{"type":"message","content":[{"type":"output_text","text":"Hello"}]}]})")=="Hello");
-    assert(parse(R"({"status":"completed","output":[{"content":[{"type":"refusal","refusal":"Cannot help."}]}]})")=="Cannot help.");
-    for(auto invalid:{R"({"status":"incomplete","output":[]})",R"({"status":"completed","output":[]})",R"({"error":{"message":"bad key"}})"}) {
+    assert(parse(R"({"stop_reason":"end_turn","content":[{"type":"thinking","thinking":"","signature":"x"},{"type":"text","text":"Hello"}]})")=="Hello");
+    // After a server-side fallback only the content after the fallback block is the answer.
+    assert(parse(R"({"stop_reason":"end_turn","content":[{"type":"text","text":"partial"},{"type":"fallback"},{"type":"text","text":"Rescued"}]})")=="Rescued");
+    for(auto invalid:{R"({"stop_reason":"max_tokens","content":[{"type":"text","text":"cut"}]})",R"({"stop_reason":"refusal","content":[]})",
+                      R"({"stop_reason":"end_turn","content":[]})",R"({"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}})"}) {
         bool failed=false; try {parse(invalid);}catch(const std::runtime_error&){failed=true;} assert(failed);
     }
-    int id=QFontDatabase::addApplicationFont("fonts/Caveat.ttf"); assert(id>=0);
+    int id=QFontDatabase::addApplicationFont(QFileInfo("fonts/Caveat.ttf").absoluteFilePath()); assert(id>=0);
     QFont font(QFontDatabase::applicationFontFamilies(id).first()); font.setPixelSize(48); font.setWeight(QFont::Medium);
     QFontMetrics fm(font);
     QString answer="The Moon shines because it reflects sunlight. It does not produce its own light.";

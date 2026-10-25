@@ -1,45 +1,54 @@
-# Ink Diary 4.1 — reMarkable 2
+# Ink Diary for Claude — reMarkable 2
+
+A fork of [mmoscat/remarkable-chatgpt](https://github.com/mmoscat/remarkable-chatgpt) (Ink Diary 4.1) that talks to Anthropic's Claude instead of OpenAI.
 
 **Installation and configuration: [INSTALL.md](INSTALL.md).**
 
-This repository contains version 4.1 source, prebuilt ARM binaries, tests, assets, licenses and installation scripts. It contains no API credentials. Configure your own key privately on the tablet.
+A Claude button inside the standard notebook app. Tap it to send the visible notebook area to the Claude API over the tablet's Wi-Fi, render the answer in Caveat handwriting, and insert it beneath your writing as a single handwriting image. No companion computer is needed after setup.
 
-A ChatGPT button inside the standard notebook app. Tap it to send the visible notebook area to OpenAI over the tablet's Wi-Fi, render the answer in Caveat handwriting, and insert it beneath your writing as a single handwriting image. No companion computer is needed after setup.
+Target: **reMarkable 2**, any OS version whose Qt is binary compatible with the SDK used for the build. The checked-in `bin/ink-diary.so` is built with the **3.28.0.172** SDK (Qt 6.10.3). This is a development prototype.
 
-Target: **reMarkable 2, OS 3.27.3.0**. This is a development prototype, not a published Vellum catalog package. Hardware validation is in progress; see VALIDATION.md for the actual tested state.
+**Port status:** built with the 3.28.0.172 SDK, host unit tests pass, and live web search has been verified against the Claude API. It has not yet been run on a tablet. See VALIDATION.md.
+
+### Changes from upstream
+
+- Requests go to `https://api.anthropic.com/v1/messages` (`x-api-key`, `anthropic-version: 2023-06-01`). Notebook reading uses Claude vision plus structured outputs (`output_config.format`) with the same answer schema as upstream.
+- Web search uses Anthropic's server-side `web_search` tool. Citations come from the API's `web_search_result_location` metadata.
+- AI image generation (comics, illustrations) was removed because the Claude API has no image-generation endpoint. Such requests get a short text reply suggesting a diagram instead. Plots, Mermaid flowcharts, sequence diagrams, Venn diagrams, checklists, tables and calendars still render locally on the tablet.
+- Default model `claude-sonnet-5-5`. On Sonnet 5.5, Opus 5.5, Opus 5 and Fable 5.1, requests opt into server-side refusal fallbacks (`fallbacks: "default"`).
 
 ## Demo mode
 
-For offline testing, config.json may contain `{"demo_mode":true}`. Holding the icon shows **ChatGPT (demo)** and inserts a fixed handwriting sample below your writing without making any OpenAI request. Running `configure.sh` replaces demo mode with the real API configuration.
+For offline testing, config.json may contain `{"demo_mode":true}`. Holding the icon shows **Claude (demo)** and inserts a fixed handwriting sample below your writing without making any API request. Running `configure.sh` replaces demo mode with the real API configuration.
 
 ## First use
 
-1. Configure your own OpenAI API key privately in the reManager terminal:
+1. Configure your own Anthropic API key privately in the reManager terminal:
    ```sh
    sh /home/root/.config/ink-diary/configure.sh
    ```
-   The key entry is hidden. The default model is `gpt-4.1-mini`; another image-capable Responses API model may be entered. API usage is billed to your OpenAI API account. A ChatGPT app conversation is not created.
+   The key entry is hidden. The default model is `claude-sonnet-5-5`; any Claude model with vision and structured outputs can be entered (for example `claude-opus-5-5` or `claude-haiku-5-5`). API usage is billed to your Anthropic API account. No Claude.ai conversation is created.
 2. Enable Wi-Fi. Open a disposable notebook with a **blank or lightly ruled template**, in **portrait orientation**, at normal zoom.
 3. The answer image uses black handwriting independently of the selected pen.
 4. Write a short question anywhere in the visible capture area, including at the top, away from the left toolbar. Leave the lower half clear.
-5. Tap the **ChatGPT icon** in the bottom-right. Keep the page still and lift your pen until it finishes. While working, the icon becomes a stop square; tap it to cancel. Completion and error messages appear briefly above the button. Hold the icon to see its current status.
-6. The answer is laid out in the Caveat handwriting font and inserted as one transparent image. Letters are not editable pen strokes. The native notebook app controls image sizing and selection; placement and sizing need device validation.
+5. Tap the **Claude icon** at the top right, under the toolbar's close button. Keep the page still and lift your pen until it finishes. While working, the icon becomes a stop square; tap it to cancel. Completion and error messages appear briefly above the button. Hold the icon to see its current status.
+6. The answer is laid out in the Caveat handwriting font and inserted as one transparent image. Letters are not editable pen strokes. The native notebook app controls image sizing and selection.
 
 ## Web search
 
 Write `Search` followed by a question to explicitly request a web lookup, for example `Search what is the screen resolution of reMarkable 2?`. Questions about current facts, news, weather, prices and schedules are also routed to search automatically by the model. Include a location when needed. Ordinary timeless questions and function plots do not normally need a lookup.
 
-The existing image-reading request transcribes/routes the question; search requests then make a second Responses API call with the hosted `web_search` tool required. The plugin checks for a completed search and citation metadata. Failed searches still produce a status message. A completed search without citation links (which can happen with weather results) now displays its answer with an explicit source-links-unavailable notice; links are never invented. Automatic routing and handwriting recognition can still make mistakes; use the explicit Search command when a lookup matters.
+The first request reads the page and routes the question. Search requests then make a second Messages API call with Anthropic's server-side `web_search` tool (`web_search_20250305`, at most three searches). Claude Opus 5.5 and Sonnet 5.5 do not accept a forced `tool_choice`, so the system prompt tells Claude to search. The plugin rejects an answer unless a search actually returned results. A search error (for example `too_many_requests`) is shown as a status message. Long searches that return `pause_turn` are resumed automatically up to three times.
 
-Answers include numbered citations and a source list with the API-provided titles and full URLs. Sources use a smaller print font for legibility. Notebook PNGs are not clickable. Each searched answer also has a sibling `.png.html` file in `/home/root/.local/share/ink-diary/answers/` containing the same answer with clickable inline citations; copy it through reManager to read in a browser. Sources are extracted from API annotations, not invented by the model. HTML text and links are escaped.
+Answers include numbered citations and a source list built from the API's `web_search_result_location` citations (URL and title). Links are never invented. If the search ran but Claude cited nothing, the answer is shown with an explicit source-links-unavailable notice. Sources use a smaller print font for legibility. Notebook PNGs are not clickable. Each searched answer also has a sibling `.png.html` file in `/home/root/.local/share/ink-diary/answers/` with clickable citations; copy it through reManager to read in a browser. HTML text and links are escaped.
 
-Search requests use your local timezone, currently `America/New_York`, with automatic daylight-saving conversion. A tablet-generated “Checked at” line records when the response arrived; it is not the weather observation time. Another IANA timezone can be set with the optional `timezone` configuration field.
+Search requests use your local timezone (default `America/New_York`, set with the optional `timezone` field), with automatic daylight-saving conversion. A tablet-generated "Checked at" line records when the response arrived; it is not the weather observation time.
 
-Search adds latency and API tool charges. Your existing key and model are retained; the model must support the hosted web-search tool. The question text and relevant notebook context are sent in the second request. Source files are root-only and persist with answer PNGs. Demo mode still makes no API requests.
+Search adds latency and costs $10 per 1,000 searches plus tokens. Web search can be disabled for your organization in the Claude Console; requests then fail with an HTTP 400 status message. Demo mode makes no API requests.
 
 ## Plot commands
 
-Write `plot` followed by one equation, then tap the ChatGPT icon. Examples:
+Write `plot` followed by one equation, then tap the Claude icon. Examples:
 
 - `plot y = x^2`
 - `plot y = sin(x)`
@@ -49,23 +58,21 @@ Handwritten superscripts are accepted through image recognition. The model trans
 
 The default x range is -5 to 5; y is automatically scaled from sampled values. Axes have independent scales. Trigonometric functions use radians; ln/log mean natural logarithm. Supported operations: +, -, multiplication, division, powers, parentheses, sin, cos, tan, sqrt, abs, exp, ln, log, pi and e. Only explicit single-variable functions y=f(x) are supported, not implicit equations, multiple curves or parametric plots. Very narrow features can be missed by sampling; undefined values and detected asymptotes break the curve.
 
-Answers and plots append below existing page content, extending beyond the visible screen when necessary. Scroll down to see the rest. Graphs use a white background for legibility over ruled templates and are inserted as image objects. Ordinary questions retain handwriting-image answers. Demo mode remains the original fixed text sample. The configured model must support Responses API Structured Outputs (the default gpt-4.1-mini does).
+Answers and plots append below existing page content, extending beyond the visible screen when necessary. Scroll down to see the rest. Graphs use a white background for legibility over ruled templates and are inserted as image objects. Ordinary questions retain handwriting-image answers. Demo mode remains the original fixed text sample. The configured model must support structured outputs (all current Claude models do).
 
 ## Generated images and diagrams
 
-Write a request and tap the same ChatGPT icon. Examples:
+The Claude API cannot generate images, so upstream's artwork feature (comics, illustrations) is not available. Such requests get a short text reply, often suggesting a diagram instead.
 
-- `Generate a three-panel manga comic about a robot growing its first flower.`
-- `Draw a black and white illustration of the story above.`
+Diagrams are drawn locally with 3–4 px black lines and print labels. Examples:
+
 - `Create a Mermaid flowchart for making tea.`
-- `Create a sequence diagram of a tablet sending a question to OpenAI.`
+- `Create a sequence diagram of a tablet sending a question to Claude.`
 - `Create a Venn diagram comparing cats and dogs.`
 
-Artwork requests use a second OpenAI call to `/v1/images/generations`, default model `gpt-image-1.5`, medium quality, one portrait 1024×1536 PNG. The prompt includes the story transcribed from the visible page. The returned image is composited over white, scaled to notebook width and converted to actual 8-bit grayscale. Image generation can take several minutes and adds image API charges. Keep the page still until insertion; stop/page-change guards remain active. Cancellation stops the local request but cannot guarantee cancellation of server-side processing or billing. Images are appended below existing content and remain image objects, not editable ink. If the account lacks image-model access, the button reports an API error. The optional `image_model` field selects a different Images API model supporting these parameters; changing the ordinary text `model` does not change the image model. Existing API credentials are preserved.
+The model produces a restricted Mermaid subset: flowcharts using TD/TB source syntax (up to 12 nodes and 24 arrows), laid out in a three-column wrapping grid, or sequence diagrams (2–5 participants and up to 20 messages). This is a native subset renderer, not the complete Mermaid JavaScript engine. Class, ER, Gantt, state diagrams, arbitrary Mermaid directives and mixed Markdown/diagram documents are not supported. Flowcharts support rectangular, rounded and diamond nodes, arrows and short edge labels. Complex branching/loop layouts may need a simpler request.
 
-Diagrams are drawn locally with 3–4 px black lines and print labels. No third-party rendering service or companion computer is used. The model produces a restricted Mermaid subset: flowcharts using TD/TB source syntax (up to 12 nodes and 24 arrows), laid out in a three-column wrapping grid, or sequence diagrams (2–5 participants and up to 20 messages). This is a native subset renderer, not the complete Mermaid JavaScript engine. Class, ER, Gantt, state diagrams, arbitrary Mermaid directives and mixed Markdown/diagram documents are not supported yet. Flowcharts support rectangular, rounded and diamond nodes, arrows and short edge labels. Labels may be quoted or unquoted; inline node declarations, chained arrows, semicolon-separated statements and implicit node references are accepted. Complex branching/loop layouts may need a simpler request.
-
-Venn diagrams support two or three sets with numbered exclusive regions and a readable content legend underneath. Circle areas are not proportional to counts. Both blank templates and labeled comparisons work. Artwork prompts and diagram source are saved privately beside answer PNGs as `.png.source.txt`; ordinary text retains `.png.md`. The frozen version 3.0 release is unchanged.
+Venn diagrams support two or three sets with numbered exclusive regions and a readable content legend underneath. Circle areas are not proportional to counts. Diagram source is saved privately beside answer PNGs as `.png.source.txt`; ordinary text keeps `.png.md`.
 
 ## Prototype limits
 
@@ -76,40 +83,30 @@ Venn diagrams support two or three sets with numbered exclusive regions and a re
 - Page identity and a second screenshot are checked before insertion. Keep the page still until completion. Native image insertion is asynchronous; cancellation cannot retract an insertion already handed to the notebook app.
 - Font coverage limits output languages and symbols. Unsupported characters produce an error rather than missing glyphs.
 - Native image insertion and screen-to-page coordinate mapping must be supported by the installed firmware.
-- Firmware updates require revalidation. The native extension refuses to load outside 3.27.3.0; remove its QMD patch before changing firmware.
+- Firmware updates require revalidation. Instead of a fixed version, the extension declines to load if the firmware's Qt is older than, or a different major version from, the Qt it was built against. Notebook-app internals (page view, native image insertion, screen size) are probed at runtime, and a missing one produces a status message. A firmware update can still change those internals: rebuild with the matching SDK, and remove the QMD patch if the UI misbehaves.
 
-## Installation from this archive
+## Installation
 
-Install Vellum/reManager and a working xovi/qt-resource-rebuilder setup first. Copy this directory to the tablet, then run as root:
-
-```sh
-cd /home/root/ink-diary-setup
-sh install.sh
-sh /home/root/.config/ink-diary/configure.sh
-```
-
-The installer adds screenshot/message-broker dependencies through Vellum, installs the `.so`, notebook patch and font, and preserves an existing configuration. It does not restart the UI. After returning to the library, load the extension with:
-
-```sh
-setsid bash /home/root/xovi/start >/tmp/ink-diary-start.log 2>&1 </dev/null &
-```
+Follow **[INSTALL.md](INSTALL.md)**: SSH access, Vellum and xovi, copying this repo, `install.sh`, the required `xovi/rebuild_hashtable` step, your API key, and `xovi/start`. xovi is tethered, so the button is gone after a reboot: triple-press the power button (with the optional xovi-tripletap starter from INSTALL.md), or run `bash /home/root/xovi/start` over SSH.
 
 ## Removal
 
 ```sh
-sh /home/root/ink-diary-setup/uninstall.sh
+sh /home/root/ink-diary-claude/uninstall.sh
 ```
 
 Restart the UI afterwards. Your notebooks and existing Vellum packages remain. The API key/configuration remains at `/home/root/.config/ink-diary/config.json`; remove that specific file if you want to delete the saved credential.
 
 ## Privacy and network behavior
 
-Only tapping ChatGPT starts a request. The cropped visible notebook image goes to `https://api.openai.com/v1/responses` over HTTPS with certificate verification. `store:false` is set; it is not a promise of zero service-side retention. Screenshots use a private temporary directory and are deleted on normal completion/error. Answer PNGs remain in the root-only directory `/home/root/.local/share/ink-diary/answers` because the notebook app imports them asynchronously. An app crash may leave temporary files until reboot. For requested artwork, a standalone story/art prompt is also sent to `https://api.openai.com/v1/images/generations`; that endpoint does not accept the Responses API `store` flag. Diagram rendering remains local after the initial OpenAI transcription request. Notebook content and credentials are not printed to logs. The API key is saved locally with root-only permissions.
+Only tapping Claude starts a request. The cropped visible notebook image goes to `https://api.anthropic.com/v1/messages` over HTTPS with certificate verification. Anthropic's API data-retention policy applies; see https://platform.claude.com/docs/en/manage-claude/api-and-data-retention . Web searches send a standalone rewritten question in a second request. Screenshots use a private temporary directory and are deleted on normal completion/error. Answer PNGs remain in the root-only directory `/home/root/.local/share/ink-diary/answers` because the notebook app imports them asynchronously. An app crash may leave temporary files until reboot. Diagram rendering is local after the reading request. Notebook content and credentials are not printed to logs. The API key is saved locally with root-only permissions.
 
 ## Build and test
 
-Built using the official rM2 SDK for the 3.27 series:
-https://storage.googleapis.com/remarkable-codex-toolchain/3.27.0.97/rm2/remarkable-production-image-5.7.119-rm2-public-x86_64-toolchain.sh
+Build with the official rM2 SDK matching the tablet's OS version, listed at https://developer.remarkable.com/links . The checked-in binary uses 3.28.0.172:
+https://storage.googleapis.com/remarkable-codex-toolchain/3.28.0.172/remarkable-production-image-5.8.203-rm2-public-aarch64-toolchain.sh (an x86_64 variant is also published).
+
+The SDK runs on Linux. On a Mac, use a Linux VM (for example Lima, `limactl start template:ubuntu-lts`), and build from a copy on the VM's own disk: macOS filesystems are case-insensitive, and the repo's `VERSION` file then shadows the C++ `<version>` header.
 
 ```sh
 export SDK_ENV=/absolute/path/to/sdk/environment-setup-cortexa7hf-neon-remarkable-linux-gnueabi
@@ -123,9 +120,9 @@ Output: `bin/ink-diary.so` (ARMv7). Host checks require a C++ compiler and Qt6 C
 ./test.sh
 ```
 
-The checks cover placement boundaries, Responses API JSON handling, incomplete/refusal/error cases, and actual font rendering. They do not test live network requests or physical pen injection.
+The checks cover placement boundaries, Messages API JSON handling (refusal, max_tokens, fallback, web search citations, search errors, pause_turn), and actual font rendering. They do not test live network requests or physical pen injection.
 
-Upstream provenance and licenses: THIRD_PARTY.md. API documentation: https://developers.openai.com/api/docs/guides/images-vision
+Upstream provenance and licenses: THIRD_PARTY.md. API documentation: https://platform.claude.com/docs
 
 Append-placement regression checks can also be run with `node tests/append.cjs`.
 
@@ -148,16 +145,16 @@ Both the notebook-reading stage and web-search stage receive the tablet's curren
 In reManager's terminal, run:
 
 ```sh
-sh /home/root/.config/ink-diary/configure.sh --model gpt-5.4
+sh /home/root/.config/ink-diary/configure.sh --model claude-opus-5-5
 ```
 
-The `--model` option preserves the saved API key and every other configuration field. It validates the name and existing JSON, then saves atomically with owner-only permissions. No restart is needed; the next question uses the new model. This changes the model for both notebook reading and web search. Use an image-capable Responses model supporting structured outputs and hosted web search, available to your API account. Model names alone do not guarantee account access. GPT-5.4 is a compatible option; costs and latency differ from GPT-4.1 mini. Running the helper without `--model` remains the original full key/model setup flow.
+The `--model` option preserves the saved API key and every other configuration field. It validates the name and existing JSON, then saves atomically with owner-only permissions. No restart is needed; the next question uses the new model, for both notebook reading and web search. Use a Claude model with vision and structured outputs that your API account can access, for example `claude-sonnet-5-5` (default), `claude-opus-5-5` or `claude-haiku-5-5`. Costs and latency differ. Running the helper without `--model` repeats the full key and model setup.
 
-The prompts now explicitly say the answer is rendered as GitHub Markdown. Tables and templates must be emitted outside fences; fences are reserved for programming code or explicitly requested raw Markdown source.
+For faster or cheaper answers without changing model, add `"effort":"low"` (or `medium`, `high`, `xhigh`, `max`) to config.json.
 
-Blank checklists are supported: request `create a 10 item checklist with checkboxes without labels`. Each empty task item gets an invisible layout placeholder so the checkbox retains its own writable row. Standalone checkbox symbols on separate lines are normalized to task items. Existing labels and fenced/indented code examples are preserved.
+The prompts say the answer is rendered as GitHub Markdown. Tables and templates must be emitted outside fences; fences are reserved for programming code or explicitly requested raw Markdown source.
 
-Text answers also retain their original model-returned Markdown in a private sibling `.png.md` file. This helps distinguish generation problems from rendering problems. The diagnostic message `ink-diary$probe` with argument `checklist` tests ten synthetic blank rows inside the notebook process without inserting anything.
+Blank checklists are supported: request `create a 10 item checklist with checkboxes without labels`. Each empty task item gets an invisible layout placeholder so the checkbox keeps its own writable row. Text answers also keep the model's original Markdown in a private sibling `.png.md` file. The diagnostic message `ink-diary$probe` with argument `checklist` tests ten synthetic blank rows inside the notebook process without inserting anything.
 
 ## Structured templates
 

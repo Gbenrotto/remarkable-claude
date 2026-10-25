@@ -1,4 +1,3 @@
-#include "../src/images.h"
 #include "../src/diagrams.h"
 #include "../src/plot.h"
 #include "../src/freshness.h"
@@ -7,14 +6,8 @@
 #include <iostream>
 template<class F> void rejects(F f){bool caught=false;try{f();}catch(const std::exception &){caught=true;}assert(caught);}
 int main(int argc,char **argv){QGuiApplication app(argc,argv);
-    QImage color(32,48,QImage::Format_ARGB32);color.fill(Qt::red);color.setPixelColor(0,0,Qt::transparent);
-    QByteArray bytes;QBuffer buffer(&bytes);buffer.open(QIODevice::WriteOnly);color.save(&buffer,"PNG");
-    auto gray=diaryDecodeImage({{"data",QJsonArray{QJsonObject{{"b64_json",QString::fromLatin1(bytes.toBase64())}}}}},1024);
-    assert(gray.width()==1024&&gray.height()==1536&&gray.format()==QImage::Format_Grayscale8);assert(gray.pixelColor(0,0).red()==255);
-    for(int y=0;y<gray.height();y+=50)for(int x=0;x<gray.width();x+=50){auto c=gray.pixelColor(x,y);assert(c.red()==c.green()&&c.green()==c.blue());}
-    rejects([]{diaryDecodeImage({},1174);});rejects([]{diaryDecodeImage({{"data",QJsonArray{QJsonObject{{"b64_json","bad!"}}}}},1174);});
-    assert(diaryImagePayload("a comic",{}).value("model")=="gpt-image-1.5");assert(diaryImagePayload("a comic",{{"image_model","custom"}}).value("model")=="custom");
-    for(auto kind:{"image","mermaid","venn"}){auto raw=QJsonDocument(QJsonObject{{"kind",kind},{"text","data"},{"command","draw a comic about today"}}).toJson();auto a=decodeDiaryAnswer(raw);diaryRequireFreshSearch(a);assert(!a.search);assert(a.image||!a.diagram.isEmpty());}
+    rejects([]{decodeDiaryAnswer(R"({"kind":"image","text":"a comic"})");});
+    for(auto kind:{"mermaid","venn"}){auto raw=QJsonDocument(QJsonObject{{"kind",kind},{"text","data"},{"command","draw a comic about today"}}).toJson();auto a=decodeDiaryAnswer(raw);diaryRequireFreshSearch(a);assert(!a.search);assert(!a.diagram.isEmpty());}
     auto flow=renderDiaryDiagram("mermaid",R"(flowchart TD
 A("Start")
 B{"Ready?"}
@@ -25,7 +18,7 @@ B -->|Yes| C
 B -->|No| D
 C --> D)",1174);assert(flow.save("flowchart-preview.png"));
     assert(!renderDiaryDiagram("mermaid","flowchart TD\nA[\"Loop\"]\nA --> A",1174).isNull());
-    auto seq=renderDiaryDiagram("mermaid","sequenceDiagram\nparticipant A as Tablet\nparticipant B as OpenAI\nA->>B: Read question\nB-->>A: Return answer\nA->>A: Insert image",1174);assert(seq.save("sequence-preview.png"));
+    auto seq=renderDiaryDiagram("mermaid","sequenceDiagram\nparticipant A as Tablet\nparticipant B as Claude\nA->>B: Read question\nB-->>A: Return answer\nA->>A: Insert image",1174);assert(seq.save("sequence-preview.png"));
     for(int n:{2,3}){QJsonArray sets,regions;for(int i=0;i<n;++i)sets.append(QString("Set %1").arg(i+1));for(int mask=1;mask<(1<<n);++mask)regions.append(QJsonObject{{"mask",mask},{"text",QString("Region %1 content").arg(mask)}});auto data=QJsonDocument(QJsonObject{{"sets",sets},{"regions",regions}}).toJson();auto venn=renderDiaryDiagram("venn",data,1174);assert(venn.save(QString("venn-%1-preview.png").arg(n)));}
     // Exact synthetic tea request response rejected by the previous parser.
     auto tea=renderDiaryDiagram("mermaid",R"tea(flowchart TD
@@ -58,5 +51,5 @@ H --> I)tea",1174);assert(tea.height()<=1000);assert(tea.save("tea-flowchart-pre
     rejects([]{renderDiaryDiagram("mermaid","flowchart TD\nclick A href https://example.com",1174);});
     rejects([]{renderDiaryDiagram("mermaid","sequenceDiagram\nparticipant A\nA->>B: unknown",1174);});
     rejects([]{renderDiaryDiagram("venn","{}",1174);});
-    std::cout<<"PASS: image decoding/grayscale, visual routing, flowchart/sequence/Venn rendering and invalid input rejection\n";
+    std::cout<<"PASS: image kind rejected, visual routing, flowchart/sequence/Venn rendering and invalid input rejection\n";
 }

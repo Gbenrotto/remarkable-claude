@@ -53,7 +53,7 @@ inline QJsonObject diaryTemplateSchema() {
     QJsonObject str{{"type","string"}};
     QJsonObject strings{{"type","array"},{"items",str}};
     return {{"type","object"},{"additionalProperties",false},
-        {"properties",QJsonObject{{"title",str},{"cell_lines",QJsonObject{{"type","integer"},{"minimum",1},{"maximum",10}}},{"count",QJsonObject{{"type","integer"},{"minimum",0},{"maximum",50}}},{"labels",strings},{"columns",strings},{"rows",QJsonObject{{"type","array"},{"items",strings}}}}},
+        {"properties",QJsonObject{{"title",str},{"cell_lines",QJsonObject{{"type","integer"}}},{"count",QJsonObject{{"type","integer"}}},{"labels",strings},{"columns",strings},{"rows",QJsonObject{{"type","array"},{"items",strings}}}}},
         {"required",QJsonArray{"title","count","labels","columns","rows","cell_lines"}}};
 }
 
