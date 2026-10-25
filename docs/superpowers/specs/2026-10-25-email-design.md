@@ -4,9 +4,9 @@ Status: agreed in conversation with the user on 2026-10-25, to be built in itera
 
 ## Intent
 
-The user writes "check my email" (or similar) on a reMarkable page and taps the Claude button. Claude reads their unread Gmail, leaves out newsletters and noise, and handwrites onto the page only what needs their attention, one numbered item per email. They then answers on the page in their own handwriting, sees the finished reply emails, and sends them all with one tap. The tablet does this on its own, without their computer or phone.
+The user writes "check my email" (or similar) on a reMarkable page and taps the Claude button. Claude reads their unread Gmail, leaves out newsletters and noise, and handwrites onto the page only what needs their attention, one numbered item per email. They then answer on the page in their own handwriting, sees the finished reply emails, and sends them all with one tap. The tablet does this on its own, without their computer or phone.
 
-They already has a recurring Claude Desktop job that triages email this way, and it works fine. The tablet version brings that onto paper, plus replying.
+They already have a recurring Claude Desktop job that triages email this way, and it works fine. The tablet version brings that onto paper, plus replying.
 
 ## Goals
 
@@ -92,3 +92,11 @@ Taken from the morning-brief skill the user's Claude apps use; their Desktop job
 - Host tests: IMAP response parsing (SEARCH, FETCH with literals, UTF-8 encoded-word headers), recipient computation, subject `Re:` handling, MIME building, state file round-trip, and the routing of `email_check` / `email_reply`.
 - Live tests from the Mac before deploying: real IMAP login, search and fetch with the app password (read-only, `BODY.PEEK`), and one real triage call. SMTP is tested by sending a reply to an email the user sends himself.
 - Device test: the full loop of check, then reply to two, revise one, skip none, and Send.
+
+## Search (added 2026-10-25)
+
+- Requests like "find emails from Anna", "the email about the lease renewal" or "anything from the bank this month" route to `kind=email_search`. The reading step writes the Gmail search query (`from:anna newer_than:30d`, and so on).
+- The search runs over IMAP with Gmail's own syntax (`X-GM-RAW`) in **All Mail**, so archived mail is found. The folder is found by its `\All` attribute, because its name is localised.
+- Up to **10** matches, newest first, are summarised as numbered items in the same layout as a check, with no triage. A last line gives the count of further matches.
+- "show me / fetch / open" for one email (`email.full=true`, exactly one match) prints that email in full: From, To, Cc, Date, Subject and body text.
+- **Searches never change read state** (decided 2026-10-25). Replies to search results work exactly like replies to a check. The rule that a new check or search is refused while drafts are pending applies here too.

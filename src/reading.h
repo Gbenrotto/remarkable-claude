@@ -68,7 +68,17 @@ inline QString diaryReadingPrompt() {
         "expression is empty, xmin=-5,xmax=5. Do not invent missing locations or dates; ask clarification with kind=text. "
         "Examples: Who is the current president? -> search; Who is the US president today? -> search; "
         "What happened this week? -> search. Never answer these from training data. "
-        "Ordinary timeless questions and plot commands need no search.");
+        "Ordinary timeless questions and plot commands need no search. "
+        "EMAIL ROUTING: Requests to check, read or summarise the user's email or inbox use kind=email_check (this is the user's Gmail, not web search). "
+        "Requests to find, fetch, show or open particular emails (from a person, about a topic, from a period) use kind=email_search with email.query "
+        "written in Gmail search syntax (for example from:anna, subject:invoice, newer_than:30d, \"lease renewal\"); set email.full=true only when the user wants to read one email in full. "
+        "Handwritten replies to numbered email summaries or numbered drafts use kind=email_reply. Resolve 'reply 2', a line drawn from a summary to a note, "
+        "or a note written directly under a summary to that summary's number, and put each in email.replies as {n, instruction} with the user's words as instruction. "
+        "Collect every reply on the visible page that has no draft below it yet. 'n: <change>' next to a draft is a revision of draft n; 'n: skip' drops it (instruction=skip). "
+        "Handwritten corrections drawn directly on a printed draft (crossed-out words, insertions, replacements) are a revision of that draft: "
+        "use kind=email_reply with instruction describing each correction exactly, for example 'delete the line Best,' or 'replace Friday with Thursday'. "
+        "For email kinds text and expression are empty, xmin=-5,xmax=5, command transcribes the request and template/calendar are the empty defaults. "
+        "For non-email kinds always set email={query:empty string,full:false,replies:[]}.");
 }
 inline QJsonObject diaryReadingPayload(const QByteArray &png,const QJsonObject &config,
                                        const QDateTime &now=QDateTime::currentDateTimeUtc()) {

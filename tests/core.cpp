@@ -20,7 +20,11 @@ int main(int argc,char **argv) {
     {QImage withButton(1404,1872,QImage::Format_RGB32);withButton.fill(Qt::white);
      {QPainter p(&withButton);p.fillRect(diaryButtonRect().adjusted(40,40,-40,-40),Qt::black);}
      diaryMaskControls(withButton);assert(lastInkRow(withButton.copy(captureArea))==-1);
-     assert(withButton.pixelColor(1348,168)==QColor(Qt::white));}
+     assert(withButton.pixelColor(1348,168)==QColor(Qt::white));
+     // The Send button (shown while drafts are pending) sits left of it and is masked too.
+     assert(diarySendButtonRect()==QRect(1180,112,124,112));
+     {QPainter p(&withButton);p.fillRect(diarySendButtonRect().adjusted(20,30,-20,-30),Qt::black);}
+     diaryMaskControls(withButton);assert(withButton.pixelColor(1240,168)==QColor(Qt::white));assert(lastInkRow(withButton.copy(captureArea))==-1);}
     QImage screen(1404,1872,QImage::Format_RGB32);screen.fill(Qt::white);
     screen.setPixelColor(500,0,Qt::black);
     screen.setPixelColor(500,90,Qt::black);

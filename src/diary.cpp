@@ -15,6 +15,8 @@
 #include <QUuid>
 #include <QMetaMethod>
 #include <QTimer>
+#include <QFileInfo>
+#include <functional>
 #include <QVersionNumber>
 #include "inserter.inc"
 #include "layout.h"
@@ -26,6 +28,9 @@
 #include "markdown.h"
 #include "freshness.h"
 #include "reading.h"
+#include "imap.h"
+#include "smtp.h"
+#include "mailprompts.h"
 #include "letterpaths.h"
 #include "pathwriter.inc"
 
@@ -36,8 +41,90 @@ QString message = "Claude";
 QPointer<QObject> originController, originView;
 QString originPage;
 const QString base = "/home/root/.config/ink-diary";
-void state(const QString &text) { QMutexLocker lock(&stateMutex); message = text; }
+std::atomic<bool> lastError{false};
+// Status shown by the button. Errors stay visible until the next tap (see inkDiary.qmd).
+void state(const QString &text) { QMutexLocker lock(&stateMutex); message = text; lastError=false; }
+void fail(const QString &text) { state(text); lastError=true; }
 void require(bool valid, const char *why) { if (!valid) throw std::runtime_error(why); }
+const QString emailStatePath = "/home/root/.local/share/ink-diary/email-state.json";
+std::atomic<int> pendingDrafts{-1};
+int draftCount() {
+    if(pendingDrafts<0) pendingDrafts=int(diaryLoadEmailState(emailStatePath).drafts.size());
+    return pendingDrafts;
+}
+void saveEmailState(const DiaryEmailState &s) {
+    QDir().mkpath(QFileInfo(emailStatePath).absolutePath());
+    diarySaveEmailState(s,emailStatePath);pendingDrafts=int(s.drafts.size());
+}
+QJsonObject claudeJson(const QJsonObject &payload,const QJsonObject &config,const std::function<bool()> &guard) {
+    auto reply=diaryApiRequest(payload,config.value("api_key").toString(),guard);
+    { // Last raw email response, root-only like the answer files, for diagnosing on-device failures.
+        QSaveFile f("/home/root/.local/share/ink-diary/last-email-response.json");
+        if(f.open(QIODevice::WriteOnly)){f.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner);f.write(QJsonDocument(reply).toJson(QJsonDocument::Compact));f.commit();}
+    }
+    auto doc=QJsonDocument::fromJson(responseText(reply).toUtf8());
+    require(doc.isObject(),"Could not read Claude's answer; please try again");
+    return doc.object();
+}
+// Sends every pending draft over SMTP and saves what is left; sets the status line.
+void sendPending(const QJsonObject &config,DiaryEmailState &st) {
+    const QString user=config.value("gmail_address").toString().trimmed(),pass=config.value("gmail_app_password").toString().trimmed();
+    require(!user.isEmpty()&&!pass.isEmpty(),"Set gmail_address and gmail_app_password (configure.sh --gmail)");
+    state("Sending...");
+    QString status=diarySendDrafts(st,[&](const DiaryDraft &d,QString *error){
+        return diarySmtpSend(user,pass,diarySmtpRecipients(d.to,d.cc),diaryMime(d,user),error);});
+    saveEmailState(st);
+    if(st.drafts.isEmpty()) state(status); else fail(status);
+}
+// Turns an email request into page Markdown; afterInsert runs only once the image is on the page.
+QString handleEmail(const DiaryAnswer &a,const QJsonObject &config,std::function<void()> &afterInsert,QString &done,
+                    const std::function<bool()> &guard) {
+    const QString user=config.value("gmail_address").toString().trimmed(),pass=config.value("gmail_app_password").toString().trimmed();
+    require(!user.isEmpty()&&!pass.isEmpty(),"Set gmail_address and gmail_app_password (configure.sh --gmail)");
+    DiaryEmailState st=diaryLoadEmailState(emailStatePath);
+    if(!a.emailReplies.isEmpty()) {
+        state("Writing drafts...");
+        bool needClaude=false;for(const auto &r:a.emailReplies) if(r.second.compare("skip",Qt::CaseInsensitive)!=0) needClaude=true;
+        QJsonObject result=needClaude ? diaryRequestDrafts(st,a.emailReplies,config,[&](const QJsonObject &payload){return claudeJson(payload,config,guard);})
+                                      : QJsonObject{{"drafts",QJsonArray{}}};
+        QString md=diaryApplyDrafts(st,result,a.emailReplies,user);
+        afterInsert=[st]{saveEmailState(st);};
+        done=st.drafts.isEmpty() ? "No drafts pending" : QString("Drafts added; tap Send %1").arg(st.drafts.size());
+        return md;
+    }
+    require(st.drafts.isEmpty(),"Send or skip the pending drafts first");
+    DiaryImap imap(guard);
+    if(a.emailCheck) {
+        state("Checking email...");
+        imap.login(user,pass);imap.select("INBOX",true);
+        auto unread=imap.unseen();auto newest=unread.mid(qMax(0,int(unread.size())-50));
+        auto mails=imap.fetch(newest);
+        QMap<int,DiaryMail> numbered;QString md;
+        if(mails.isEmpty()) md="Nothing needs you. No unread email.";
+        else md=diaryTriageMarkdown(claudeJson(diaryTriagePayload(mails,config,a.command),config,guard),mails,int(unread.size()-newest.size()),&numbered);
+        QVector<qint64> checked;for(const auto &m:mails) checked<<m.uid;
+        afterInsert=[numbered,checked,user,pass]{
+            DiaryEmailState fresh;fresh.items=numbered;saveEmailState(fresh); // numbering first: replies work even if marking read fails
+            DiaryImap mark({});mark.login(user,pass);mark.select("INBOX",false);mark.markSeen(checked);
+        };
+        done=numbered.isEmpty() ? "Email checked; nothing needs you" : QString("Email checked; %1 need you").arg(numbered.size());
+        return md;
+    }
+    state("Searching email...");
+    imap.login(user,pass);bool everything=false;imap.select(imap.searchFolder(&everything),true);
+    auto found=imap.gmailSearch(a.emailQuery);auto newest=found.mid(qMax(0,int(found.size())-10));
+    auto mails=imap.fetch(newest);
+    QStringList footer;
+    if(found.size()>newest.size()) footer<<QString("+%1 more matches").arg(found.size()-newest.size());
+    if(!everything) footer<<"Searched the inbox only (All Mail is hidden from IMAP in Gmail settings)";
+    QMap<int,DiaryMail> numbered;QString md;
+    if(mails.isEmpty()) md=QString("No emails matched %1.").arg(diaryMarkdownLiteral(a.emailQuery))+(footer.isEmpty()?QString():"\n\n"+footer.join("\n\n"));
+    else if(a.emailFull && mails.size()==1) {numbered[1]=mails.first();md=diaryFullMailMarkdown(mails.first());}
+    else md=diaryMailListMarkdown(claudeJson(diarySummaryPayload(mails,config,a.command),config,guard),mails,footer,QString(),&numbered);
+    afterInsert=[numbered]{DiaryEmailState fresh;fresh.items=numbered;saveEmailState(fresh);};
+    done=QString("Found %1 email%2").arg(numbered.size()).arg(numbered.size()==1?"":"s");
+    return md;
+}
 
 QImage capture(const QString &path) {
     QFile::remove(path);
@@ -66,7 +153,8 @@ QString answer(const QImage &image, const QJsonObject &config, int /*lines*/) {
     return responseText(diaryApiRequest(payload,key,diaryGuard));
 }
 
-void work() {
+// sendMode: the Send button. Hand edits on printed drafts are applied and shown first; otherwise the drafts are sent.
+void work(bool sendMode) {
     try {
         QTemporaryDir temp("/tmp/ink-diary-XXXXXX");
         require(temp.isValid(), "Cannot create private temporary directory");
@@ -91,12 +179,28 @@ void work() {
         // Native scene images can extend below the current viewport. Render at
         // a fixed readable size, independent of empty space on screen.
         int width=area.width(), available=1582;
-        state("Thinking...");
-        bool demo=config.value("demo_mode").toBool(false);
+        std::function<void()> afterInsert;QString emailDone;
         DiaryAnswer resultAnswer;
-        if(demo) resultAnswer.text="This is a handwriting test. Live answers will work after you configure an Anthropic API key.";
-        else resultAnswer=decodeDiaryAnswer(answer(question,config,qMin(9,available/60)));
-        if(!demo)diaryRequireFreshSearch(resultAnswer);
+        if(sendMode) {
+            auto st=diaryLoadEmailState(emailStatePath);
+            if(st.drafts.isEmpty()) {fail("No drafts to send");busy=false;return;}
+            state("Checking drafts for edits...");
+            QByteArray png;{QBuffer buffer(&png);buffer.open(QIODevice::WriteOnly);question.save(&buffer,"PNG");}
+            QString md;
+            auto edited=diaryApplyEdits(st,claudeJson(diaryEditCheckPayload(png,st,config),config,diaryGuard),&md);
+            if(edited.isEmpty()) {sendPending(config,st);busy=false;return;}
+            resultAnswer.text=md;
+            afterInsert=[st]{saveEmailState(st);};
+            emailDone=QString("Edits applied; check them and tap Send %1").arg(st.drafts.size());
+        } else {
+            state("Thinking...");
+            bool demo=config.value("demo_mode").toBool(false);
+            if(demo) resultAnswer.text="This is a handwriting test. Live answers will work after you configure an Anthropic API key.";
+            else resultAnswer=decodeDiaryAnswer(answer(question,config,qMin(9,available/60)));
+            if(!demo)diaryRequireFreshSearch(resultAnswer);
+            if(resultAnswer.emailCheck||resultAnswer.emailSearch||!resultAnswer.emailReplies.isEmpty())
+                resultAnswer.text=handleEmail(resultAnswer,config,afterInsert,emailDone,diaryGuard);
+        }
         DiaryWebAnswer web;
         if(resultAnswer.search) {
             state("Searching the web...");
@@ -171,9 +275,10 @@ void work() {
             QFile::remove(sourcePath);
             throw std::runtime_error(result.value("message").toString().toStdString());
         }
+        if(afterInsert) {afterInsert();state(emailDone);busy=false;return;}
         state(!resultAnswer.diagram.isEmpty() ? "Diagram added; scroll down if needed" : resultAnswer.plot ? "Plot added; scroll down if needed" : resultAnswer.search ? (web.sources.isEmpty() ? "Web answer added; source links unavailable" : "Web answer + sources added") : "Answer added; scroll down if needed");
 
-    } catch(const std::exception &error) { state(QString::fromUtf8(error.what())); }
+    } catch(const std::exception &error) { fail(QString::fromUtf8(error.what())); }
     busy=false;
 }
 }
@@ -198,17 +303,32 @@ extern "C" char *diary_start(const char *) {
         originController=context.controller; originView=context.documentView; originPage=context.pageId;
         valid=originController && originView && !originPage.isEmpty();
     });
-    if(!valid) {busy=false; state("Open a notebook page first"); return response(QJsonObject{{"ok",false}});}
+    if(!valid) {busy=false; fail("Open a notebook page first"); return response(QJsonObject{{"ok",false}});}
     state("Starting...");
-    std::thread(work).detach();
+    std::thread([]{work(false);}).detach();
     return response(QJsonObject{{"ok",true}});
 }
 extern "C" char *diary_cancel(const char *) { cancelled=true; return response(QJsonObject{{"ok",true}}); }
+// The Send button: like a tap, it photographs the page first so hand edits on printed drafts are not lost.
+extern "C" char *diary_send(const char *) {
+    if(busy.exchange(true)) return response(QJsonObject{{"ok",false},{"message","Already busy"}});
+    cancelled=false;
+    bool valid=false;
+    runOnGuiSync([&] {
+        auto context=findActivePage();
+        originController=context.controller; originView=context.documentView; originPage=context.pageId;
+        valid=originController && originView && !originPage.isEmpty();
+    });
+    if(!valid) {busy=false; fail("Open the notebook page with the drafts"); return response(QJsonObject{{"ok",false}});}
+    state("Starting...");
+    std::thread([]{work(true);}).detach();
+    return response(QJsonObject{{"ok",true}});
+}
 extern "C" char *diary_status(const char *) {
     QFile config(base+"/config.json");
     bool demo=config.open(QIODevice::ReadOnly) && QJsonDocument::fromJson(config.readAll()).object().value("demo_mode").toBool();
     QMutexLocker lock(&stateMutex);
-    return response(QJsonObject{{"busy",busy.load()},{"message",message=="Claude" && demo ? "Claude (demo)" : message}});
+    return response(QJsonObject{{"busy",busy.load()},{"drafts",draftCount()},{"error",lastError.load()},{"message",message=="Claude" && demo ? "Claude (demo)" : message}});
 }
 // Load on any firmware whose Qt is binary compatible with the SDK we were built
 // against (same major, same or newer minor). Notebook-app internals are probed at
@@ -222,7 +342,32 @@ extern "C" char _xovi_shouldLoad() {
     }
     return dlsym(RTLD_DEFAULT,"_Z21qRegisterResourceDataiPKhS0_S0_")!=nullptr;
 }
+// Read-only email diagnostics over the broker pipe: "email" or "email-search:<gmail query>" starts a run
+// (fetch with BODY.PEEK + Claude, nothing inserted or marked read); "email-result" returns its outcome.
+QMutex probeMutex;QJsonObject probeResult{{"state","idle"}};
 extern "C" char *diary_probe(const char *arg) {
+    if(arg && QByteArray(arg)=="email-result") {QMutexLocker lock(&probeMutex);return response(probeResult);}
+    if(arg && QByteArray(arg).startsWith("email")) {
+        if(busy.exchange(true)) return response(QJsonObject{{"ok",false},{"message","Already busy"}});
+        {QMutexLocker lock(&probeMutex);probeResult=QJsonObject{{"state","running"}};}
+        QByteArray request(arg);
+        std::thread([request] {
+            QJsonObject out{{"state","done"}};
+            try {
+                QFile file(base+"/config.json");require(file.open(QIODevice::ReadOnly),"Create ink-diary/config.json first");
+                auto config=QJsonDocument::fromJson(file.readAll()).object();
+                DiaryAnswer a;a.command=request.startsWith("email-search:") ? "find emails" : "check my email";
+                if(request.startsWith("email-search:")) {a.emailSearch=true;a.emailQuery=QString::fromUtf8(request.mid(13));}
+                else a.emailCheck=true;
+                std::function<void()> afterInsert;QString done;
+                out.insert("markdown",handleEmail(a,config,afterInsert,done,[]{return true;}));
+                out.insert("status",done);
+            } catch(const std::exception &error) {out.insert("error",QString::fromUtf8(error.what()));}
+            {QMutexLocker lock(&probeMutex);probeResult=out;}
+            state("Claude");busy=false;
+        }).detach();
+        return response(QJsonObject{{"ok",true}});
+    }
     if(arg && QByteArray(arg)=="checklist") {
         QJsonObject check;
         runOnGuiSync([&] {

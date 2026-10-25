@@ -14,6 +14,7 @@ Target: **reMarkable 2**, any OS version whose Qt is binary compatible with the 
 
 - Requests go to `https://api.anthropic.com/v1/messages` (`x-api-key`, `anthropic-version: 2023-06-01`). Notebook reading uses Claude vision plus structured outputs (`output_config.format`) with the same answer schema as upstream.
 - Web search uses Anthropic's server-side `web_search` tool. Citations come from the API's `web_search_result_location` metadata.
+- Email: triage, search and handwritten replies with a Send button (Gmail, app password).
 - AI image generation (comics, illustrations) was removed because the Claude API has no image-generation endpoint. Such requests get a short text reply suggesting a diagram instead. Plots, Mermaid flowcharts, sequence diagrams, Venn diagrams, checklists, tables and calendars still render locally on the tablet.
 - Default model `claude-sonnet-5-5`. On Sonnet 5.5, Opus 5.5, Opus 5 and Fable 5.1, requests opt into server-side refusal fallbacks (`fallbacks: "default"`).
 
@@ -45,6 +46,10 @@ Answers include numbered citations and a source list built from the API's `web_s
 Search requests use your local timezone (default `America/New_York`, set with the optional `timezone` field), with automatic daylight-saving conversion. A tablet-generated "Checked at" line records when the response arrived; it is not the weather observation time.
 
 Search adds latency and costs $10 per 1,000 searches plus tokens. Web search can be disabled for your organization in the Claude Console; requests then fail with an HTTP 400 status message. Demo mode makes no API requests.
+
+## Email
+
+Write `check my email` to get one numbered, handwritten item per email that needs you (newsletters and notifications are counted, not listed), `find emails from Anna` to search with Gmail syntax, and `reply 2: …` (or a line from a summary to your note) to have Claude draft reply-all emails on the page. A **Send N** button appears while drafts are pending; one tap sends them all, threaded. Checks mark what they looked at as read; searches don't. Setup and details: INSTALL.md, section 8. Gmail is reached directly from the tablet over IMAP/SMTP with an app password stored only on the tablet; email text goes to the Claude API for summarising and drafting.
 
 ## Plot commands
 

@@ -158,3 +158,16 @@ Everything above describes upstream's OpenAI build. For the Claude port:
 - **All host tests pass** on macOS (Homebrew Qt 6), 2026-10-25: `core`, `plot`, `web`, `markdown`, `config-model`, `templates`, `visuals`, `calendar`. Two test-only fixes made that possible. macOS Qt only registers application fonts from absolute paths, so the tests now load `fonts/*.ttf` via `QFileInfo::absoluteFilePath()`; the plugin already uses absolute paths on the tablet. `test.sh` now pins `LC_ALL=en_US.UTF-8`, because the EDT/EST clock assertions depend on the locale.
 - `src/diary.cpp` was compile-checked on the host with `-fsyntax-only` against Qt 6 (stub Linux input headers). There were no errors in `diary.cpp` or the API headers; the reported errors were all in `inserter.inc` and caused by the stub headers.
 - The web-search fixtures in `tests/web.cpp` follow the example response in Anthropic's web-search tool documentation, not a captured live response.
+
+## Email (2026-10-25)
+
+- Host tests (`tests/email.cpp`): RFC 2047 headers, reply-all recipients, `Re:` subjects, quoted-printable MIME, state round-trip and file mode, literal-safe IMAP parsing (a body containing `A003 OK` stays intact), multipart/HTML/base64 bodies, attachment names, triage and summary layout, drafts with revise/skip, placeholder-draft rejection, SMTP dot-stuffing, and partial send results. `config-model --set` reads secrets from stdin and accepts only known keys.
+- Live from the Mac (read-only, `EXAMINE` + `BODY.PEEK`): login, 30 unread before and after, Gmail search (`from:google newer_than:7d` → 4), and a UTF-8 search via literal. All Mail isn't exposed over IMAP on the test account, so searches fall back to the inbox and the page says so.
+- Live triage of 30 real unread messages: 1 needing attention, 29 skipped.
+- Live drafts: the first version returned placeholder bodies (`x`, 3 of 3). Stating the ask explicitly before the email data fixed it: 3 of 3 proper replies, reply-all recipients computed locally, `In-Reply-To` set.
+- On the tablet (OS 3.28.0.172), driven through the xovi-message-broker pipe (`/run/xovi-mb`):
+  - The status reports `drafts`.
+  - The read-only check probe triaged on-device over TLS IMAP and the Claude API; the search probe found 4.
+  - A seeded test draft to the account's own address was sent with `ink-diary$send` (`Sent 1`) and arrived intact (UTF-8 and a lone `.` line preserved).
+  - The unread count was unchanged by the probes.
+- **Not yet exercised on the device:** the handwritten path end to end (reading "check my email" from a page, inserting the summary, marking read, replying on paper, and the on-screen Send button).

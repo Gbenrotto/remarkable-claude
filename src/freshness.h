@@ -13,7 +13,7 @@ inline QString diaryCurrentContext(const QDateTime &now,const QString &zone) {
 // A conservative English backstop for a model that incorrectly returns kind=text.
 // Only the latest transcribed question is inspected, never old page text or an answer.
 inline void diaryRequireFreshSearch(DiaryAnswer &answer) {
-    if(answer.calendar || !answer.diagram.isEmpty() || answer.plot || answer.search || answer.command.trimmed().isEmpty())return;
+    if(answer.calendar || answer.emailCheck || answer.emailSearch || !answer.emailReplies.isEmpty() || !answer.diagram.isEmpty() || answer.plot || answer.search || answer.command.trimmed().isEmpty())return;
     static const QRegularExpression current(
         R"(\b(today|tonight|currently|latest|recent|recently|right now|this week|this month|this year)\b|\bcurrent\s+(president|prime minister|leader|governor|mayor|ceo|price|weather|news|version|rate|schedule)\b|\bwho\s+is\s+(?:the\s+)?(?:\w+\s+){0,4}(president|prime minister|governor|mayor|ceo)\b|^\s*search\b)",
         QRegularExpression::CaseInsensitiveOption);

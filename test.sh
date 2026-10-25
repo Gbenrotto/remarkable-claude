@@ -20,3 +20,5 @@ c++ -std=c++17 -fPIC tests/visuals.cpp -o build-host/visuals $(pkg-config --cfla
 QT_QPA_PLATFORM=offscreen ./build-host/visuals
 c++ -std=c++17 -fPIC tests/calendar.cpp -o build-host/calendar $(pkg-config --cflags --libs Qt6Gui Qt6Core)
 QT_QPA_PLATFORM=offscreen ./build-host/calendar
+c++ -std=c++17 -fPIC tests/email.cpp -o build-host/email $(pkg-config --cflags --libs Qt6Network Qt6Gui Qt6Core)
+QT_QPA_PLATFORM=offscreen ./build-host/email

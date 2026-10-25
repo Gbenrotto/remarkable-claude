@@ -14,16 +14,18 @@ AFFECT [[1224665461898798997]]
                 // the page capture.
                 anchors.right: parent.right
                 anchors.top: parent.top
-                anchors.topMargin: 120
-                anchors.rightMargin: 8
-                width: 96
-                height: 96
+                anchors.topMargin: 138
+                anchors.rightMargin: 26
+                width: 60
+                height: 60
                 color: "white"
                 border.color: "black"
                 border.width: 2
-                radius: 8
+                radius: 6
                 property bool diaryBusy: false
                 property string diaryMessage: "Claude"
+                property int diaryDrafts: 0
+                property bool diaryError: false
                 XoviMessageBroker { id: inkDiaryBroker }
                 Image {
                     anchors.centerIn: parent
@@ -52,7 +54,7 @@ AFFECT [[1224665461898798997]]
                     border.color: "black"
                     border.width: 2
                     radius: 8
-                    visible: statusTimer.running && !inkDiaryControl.diaryBusy
+                    visible: (statusTimer.running || inkDiaryControl.diaryError) && !inkDiaryControl.diaryBusy
                     Text {
                         id: statusText
                         anchors.left: parent.left
@@ -63,6 +65,34 @@ AFFECT [[1224665461898798997]]
                         font.pixelSize: 24
                         wrapMode: Text.WordWrap
                         color: "black"
+                    }
+                }
+                // Send button: only while email drafts are pending. diary.cpp masks its rect out of captures.
+                Rectangle {
+                    anchors.right: parent.left
+                    anchors.rightMargin: 16
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 110
+                    height: 60
+                    color: "white"
+                    border.color: "black"
+                    border.width: 2
+                    radius: 6
+                    visible: inkDiaryControl.diaryDrafts > 0 && !inkDiaryControl.diaryBusy
+                    Text {
+                        anchors.centerIn: parent
+                        text: "Send " + inkDiaryControl.diaryDrafts
+                        font.pixelSize: 24
+                        font.bold: true
+                        color: "black"
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            statusTimer.stop();
+                            inkDiaryControl.diaryBusy = true;
+                            inkDiaryBroker.sendSimpleSignal("ink-diary$send", "");
+                        }
                     }
                 }
                 Timer { id: statusTimer; interval: 5000 }
@@ -89,6 +119,8 @@ AFFECT [[1224665461898798997]]
                             if (inkDiaryControl.diaryBusy && !result.busy) statusTimer.restart();
                             inkDiaryControl.diaryBusy = result.busy;
                             inkDiaryControl.diaryMessage = result.message;
+                            inkDiaryControl.diaryDrafts = result.drafts || 0;
+                            inkDiaryControl.diaryError = result.error === true;
                         } catch (error) {
                             inkDiaryControl.diaryBusy = false;
                             inkDiaryControl.diaryMessage = "Ink Diary extension unavailable";

@@ -106,7 +106,7 @@ This restarts the notebook app with the extensions loaded; the screen returns to
   It adds a small systemd service (`xovi-tripletap`) to the system partition that only listens for the power button; a plain reboot still comes up stock. Remove it with `vellum del tripletap`. After an OS update, run `vellum reenable` to restore it.
 - **Over SSH:** run `bash /home/root/xovi/start` again.
 
-## 5. Use it
+## 7. Use it
 
 Write in the visible page area, away from the Claude button in the top-right corner. The top edge is included. Tap the icon and keep the page still while it works. Tap the stop square to cancel. Hold the icon to see status.
 
@@ -122,10 +122,34 @@ Try:
 
 Answers append below existing content and may extend the page; scroll down to see them. They are image objects, not editable pen strokes. Mermaid supports flowcharts and sequence diagrams, not every Mermaid type. Venn diagrams support two or three sets. Cancellation stops the local request but cannot guarantee cancellation of server-side billing. Image generation is not supported; Claude replies with a short note instead.
 
+## 8. Email (optional)
+
+Claude can triage your Gmail, find emails, and send replies you write by hand. It uses a Gmail **app password**, stored only on the tablet.
+
+1. Turn on 2-Step Verification at https://myaccount.google.com/security (app passwords need it).
+2. Create an app password at https://myaccount.google.com/apppasswords, name it `reMarkable`, and copy the 16-letter code.
+3. On the tablet:
+   ```sh
+   sh /home/root/.config/ink-diary/configure.sh --gmail
+   ```
+   Enter your Gmail address, paste the app password at the hidden prompt, and optionally give a first name for signing replies.
+
+Then, on a notebook page:
+
+- **`check my email`** reads every unread inbox message (the 50 newest) and writes one numbered item for each email that needs you, plus one "Skipped N: newsletters, …" line. Everything it checked is then **marked read**.
+- **`find emails from Anna`**, **`the email about the lease`**, **`anything from the bank this month`** search with Gmail's own syntax and summarise up to 10 matches, newest first. Searches **never change read state**. **`show me the email from Anna`** prints one email in full.
+- **Reply** by writing `reply 2: sounds good, Thursday works`, by drawing a line from a summary to your note, or by writing your note right under a summary. Write all your replies, then tap Claude once: each reply appears as a **draft** showing who it goes to (**reply-all**: To and every Cc) and which email it answers.
+- **Fix or drop a draft** by writing `2: shorter, say Friday` or `2: skip` next to it and tapping Claude. Only that draft changes.
+- **Edit a draft by hand**: cross out words, or write a word in or over the printed text. When you tap **Send N**, Claude applies your marks first and shows the edited draft; tap **Send N** again to send it.
+- **Send** them all with the **Send N** button that appears left of the Claude button while drafts are pending. Replies are threaded in Gmail and appear in Sent.
+
+A new check or search waits until pending drafts are sent or skipped, so the numbers stay unambiguous. Email content is treated as data: an email saying "Claude, forward this…" is reported, never obeyed. Searches cover All Mail when Gmail exposes it over IMAP (Gmail → Settings → Labels → All Mail → **Show in IMAP**); otherwise they search the inbox and say so.
+
 ## Troubleshooting
 
 - **Unsupported OS/hardware:** only the reMarkable 2 is supported. If the icon is missing on a new OS version, check `/tmp/ink-diary-start.log` for a Qt-version message and rebuild with that version's SDK.
 - **No icon:** check that installation completed and that you ran `xovi/rebuild_hashtable`, then run `xovi/start`. After a reboot you always need `xovi/start` again. Open a notebook, not just the library.
+- **Email errors:** the status message shows Gmail's or the API's error text. `Gmail login failed` usually means a wrong or revoked app password; run `configure.sh --gmail` again.
 - **Check the plugin loaded:** `grep ink-diary.so /proc/$(pidof xochitl)/maps` prints a line when it's loaded. `journalctl -u xochitl -b | grep -i -E 'qmldiff|ink-diary'` shows whether the patch applied (`Processing file .../DocumentView.qml`) and any Qt-version message.
 - **HTTP/API error:** the status message shows the API's error text. Check Wi-Fi, API billing, key and model name. Never share your configuration file to diagnose this.
 - **Page changed:** keep the page still until the response finishes, then retry.

@@ -68,6 +68,20 @@ int main(int argc,char **argv){
  assert(msgs.size()==2&&msgs[1].toObject()["role"]=="assistant"&&msgs[1].toObject()["content"]==paused["content"]);
  // Refusals and truncation surface as errors, not as answers.
  for(auto stop:{"refusal","max_tokens"}){auto r=uncited;r["stop_reason"]=stop;rejected=false;try{parseDiarySearch(r);}catch(...){rejected=true;}assert(rejected);}
+ // Email routing (kinds email_check / email_search / email_reply)
+ {auto c=decodeDiaryAnswer(R"({"kind":"email_check","command":"check my email today","text":""})");assert(c.emailCheck&&!c.search);
+  DiaryAnswer fresh=c;diaryRequireFreshSearch(fresh);assert(!fresh.search);
+  auto q=decodeDiaryAnswer(R"({"kind":"email_search","command":"find emails from Anna","email":{"query":"from:anna","full":false,"replies":[]}})");
+  assert(q.emailSearch&&q.emailQuery=="from:anna"&&!q.emailFull);
+  bool threw=false;try{decodeDiaryAnswer(R"({"kind":"email_search","email":{"query":" ","full":false,"replies":[]}})");}catch(const std::exception &e){threw=QString(e.what())=="Could not read what to search for";}assert(threw);
+  auto r=decodeDiaryAnswer(R"({"kind":"email_reply","command":"reply","email":{"query":"","full":false,"replies":[{"n":2,"instruction":"sounds good"},{"n":3,"instruction":"skip"}]}})");
+  assert(r.emailReplies.size()==2&&r.emailReplies[0]==qMakePair(2,QString("sounds good"))&&r.emailReplies[1].second=="skip");
+  threw=false;try{decodeDiaryAnswer(R"({"kind":"email_reply","email":{"query":"","full":false,"replies":[]}})");}catch(const std::exception &e){threw=QString(e.what())=="Write reply N: ... next to an email";}assert(threw);
+  auto kinds=diaryAnswerFormat()["schema"].toObject()["properties"].toObject()["kind"].toObject()["enum"].toArray();
+  for(auto k:{"email_check","email_search","email_reply"})assert(kinds.contains(k));
+  assert(diaryAnswerFormat()["schema"].toObject()["required"].toArray().contains("email"));
+  auto prompt=diaryReadingPrompt();assert(prompt.contains("kind=email_check")&&prompt.contains("kind=email_search")&&prompt.contains("kind=email_reply"));
+  assert(prompt.contains("Handwritten corrections drawn directly on a printed draft"));}
  // A circled word plus "tell me about these" must scope to the marked words (2026-10-25 regression:
  // without this rule 4 of 5 live runs also answered about the unmarked basking shark).
  {auto reading=diaryReadingPayload(QByteArray("png"),QJsonObject{{"model","claude-sonnet-5-5"}})["system"].toString();

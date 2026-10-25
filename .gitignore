@@ -25,3 +25,4 @@ captures/
 # Local release archives
 *.tar.gz
 *.zip
+.superpowers/
