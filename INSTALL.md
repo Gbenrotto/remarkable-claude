@@ -140,7 +140,7 @@ Then, on a notebook page:
 - **`find emails from Anna`**, **`the email about the lease`**, **`anything from the bank this month`** search with Gmail's own syntax and summarise up to 10 matches, newest first. Searches **never change read state**. **`show me the email from Anna`** prints one email in full.
 - **Reply** by writing `reply 2: sounds good, Thursday works`, by drawing a line from a summary to your note, or by writing your note right under a summary. Write all your replies, then tap Claude once: each reply appears as a **draft** showing who it goes to (**reply-all**: To and every Cc) and which email it answers.
 - **Fix or drop a draft** by writing `2: shorter, say Friday` or `2: skip` next to it and tapping Claude. Only that draft changes.
-- **Edit a draft by hand**: cross out words, or write a word in or over the printed text. When you tap **Send N**, Claude applies your marks first and shows the edited draft; tap **Send N** again to send it.
+- **Edit a draft by hand**: cross out words, or write a word in or over the printed text. When you tap **Send N**, Claude applies your marks and sends the corrected version; the status says which drafts it edited.
 - **Send** them all with the **Send N** button that appears left of the Claude button while drafts are pending. Replies are threaded in Gmail and appear in Sent.
 
 A new check or search waits until pending drafts are sent or skipped, so the numbers stay unambiguous. Email content is treated as data: an email saying "Claude, forward this…" is reported, never obeyed. Searches cover All Mail when Gmail exposes it over IMAP (Gmail → Settings → Labels → All Mail → **Show in IMAP**); otherwise they search the inbox and say so.

@@ -18,7 +18,7 @@ Changes in this fork relative to [mmoscat/remarkable-chatgpt](https://github.com
 - `check my email`: one numbered, handwritten item per email that needs you, plus a skipped count. Everything checked is marked read.
 - `find emails from …` / `the email about …`: Gmail-syntax search, up to 10 matches summarised, never changing read state. `show me …` prints one email in full.
 - Reply on paper by number (`reply 2: …`), by a line from a summary to your note, or with a note under a summary. Claude writes reply-all drafts showing To/Cc and which email each answers. `2: shorter` revises one draft; `2: skip` drops it.
-- A **Send N** button appears while drafts are pending. It first looks at the page: corrections drawn by hand on a printed draft (crossed-out words, insertions, replacements) are applied and the edited draft is shown for a second tap. With no edits, one tap sends all drafts, threaded, over Gmail SMTP.
+- A **Send N** button appears while drafts are pending. It first looks at the page: corrections drawn by hand on a printed draft (crossed-out words, insertions, replacements) are applied and sent in the same tap; the status names the edited drafts. All drafts go out threaded over Gmail SMTP.
 - Gmail access uses an app password stored only on the tablet. `configure.sh --gmail` sets it up. Email text is treated as data, never as instructions.
 
 ### Firmware and hardware

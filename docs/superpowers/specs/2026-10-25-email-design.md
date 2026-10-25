@@ -100,3 +100,7 @@ Taken from the morning-brief skill the user's Claude apps use; their Desktop job
 - Up to **10** matches, newest first, are summarised as numbered items in the same layout as a check, with no triage. A last line gives the count of further matches.
 - "show me / fetch / open" for one email (`email.full=true`, exactly one match) prints that email in full: From, To, Cc, Date, Subject and body text.
 - **Searches never change read state** (decided 2026-10-25). Replies to search results work exactly like replies to a check. The rule that a new check or search is refused while drafts are pending applies here too.
+
+## Hand edits on drafts (added 2026-10-25)
+
+- Tapping **Send N** first photographs the page. Corrections drawn by hand on a printed draft (crossed-out words, insertions, replacements) are applied, and the corrected drafts are sent in the same tap. At the user's request there's no second confirmation: the marks on the page are the confirmation. The status line names the drafts that were edited.

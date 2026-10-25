@@ -45,6 +45,7 @@ std::atomic<bool> lastError{false};
 // Status shown by the button. Errors stay visible until the next tap (see inkDiary.qmd).
 void state(const QString &text) { QMutexLocker lock(&stateMutex); message = text; lastError=false; }
 void fail(const QString &text) { state(text); lastError=true; }
+QString currentMessage() { QMutexLocker lock(&stateMutex); return message; }
 void require(bool valid, const char *why) { if (!valid) throw std::runtime_error(why); }
 const QString emailStatePath = "/home/root/.local/share/ink-diary/email-state.json";
 std::atomic<int> pendingDrafts{-1};
@@ -187,11 +188,14 @@ void work(bool sendMode) {
             state("Checking drafts for edits...");
             QByteArray png;{QBuffer buffer(&png);buffer.open(QIODevice::WriteOnly);question.save(&buffer,"PNG");}
             QString md;
+            // Hand edits are applied and sent in the same tap (the user's choice: no second draft).
             auto edited=diaryApplyEdits(st,claudeJson(diaryEditCheckPayload(png,st,config),config,diaryGuard),&md);
-            if(edited.isEmpty()) {sendPending(config,st);busy=false;return;}
-            resultAnswer.text=md;
-            afterInsert=[st]{saveEmailState(st);};
-            emailDone=QString("Edits applied; check them and tap Send %1").arg(st.drafts.size());
+            sendPending(config,st);
+            if(!edited.isEmpty() && !lastError) {
+                QStringList numbers;for(int n:edited) numbers<<QString::number(n);
+                state(currentMessage()+QString(" (with your edits to draft %1)").arg(numbers.join(", ")));
+            }
+            busy=false;return;
         } else {
             state("Thinking...");
             bool demo=config.value("demo_mode").toBool(false);
