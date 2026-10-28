@@ -131,6 +131,17 @@ Upstream provenance and licenses: THIRD_PARTY.md. API documentation: https://pla
 
 Append-placement regression checks can also be run with `node tests/append.cjs`.
 
+## Instruction notebook
+
+`docs/notebook/build.py` makes a short how-to as a PDF the size of the rM2 screen, one feature to a page. It needs Python 3 and Google Chrome or Chromium (set `CHROME=/path/to/chrome` if it isn't found); the fonts are vendored, so the build makes no network requests:
+
+```sh
+python3 docs/notebook/build.py                          # writes docs/notebook/claude-notebook.pdf
+uv run --with pymupdf docs/notebook/build.py --png DIR  # also renders each page to DIR/page-NN.png
+```
+
+Put `claude-notebook.pdf` on the tablet like any other PDF: drag it into the reMarkable desktop app, upload it in the mobile app, or use the tablet's USB web interface. The PDF is not committed.
+
 ## Markdown answers
 
 Answers now render GitHub-style Markdown using the tablet's Qt text engine: six heading levels, bold/italic/strikethrough, ordered and unordered nested lists, task checkboxes, tables with column alignment, inline and fenced/indented code, blockquotes, links, horizontal rules, and Markdown escapes. Paragraphs and headings use Caveat handwriting; tables and code use readable print/monospaced fonts. Code is displayed, not executed, and has no syntax highlighting. Links and checkboxes in the notebook are static ink images; links work in the saved sibling HTML file.

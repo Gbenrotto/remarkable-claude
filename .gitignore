@@ -26,3 +26,7 @@ captures/
 *.tar.gz
 *.zip
 .superpowers/
+
+# The instruction notebook is built from docs/notebook/build.py
+docs/notebook/claude-notebook.pdf
+docs/notebook/.notebook.html
