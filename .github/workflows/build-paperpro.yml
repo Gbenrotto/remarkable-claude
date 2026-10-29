@@ -32,7 +32,17 @@ jobs:
           path: ~/rm-sdk/ferrari-3.28.0.172-toolchain.sh
           key: ferrari-sdk-installer-3.28.0.172
       - name: Build and bundle
-        run: bash build-paperpro.sh
+        run: |
+          set -o pipefail
+          bash build-paperpro.sh 2>&1 | tee build.log
+      # Surface the end of the log as an annotation, readable on the run page and through the API.
+      - name: Report build failure
+        if: failure()
+        run: |
+          if [ -f build.log ]; then
+            tail -n 60 build.log | sed -e 's/%/%25/g' -e 's/\r//g' | awk 'BEGIN{ORS="%0A"} {print}' > tail.txt
+            echo "::error title=build-paperpro.sh failed::$(cat tail.txt)"
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: ink-diary-paperpro
