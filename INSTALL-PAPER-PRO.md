@@ -115,7 +115,7 @@ See the troubleshooting section of [INSTALL.md](INSTALL.md); status messages, AP
 ## Day to day
 
 - **After a reboot** the plugin is off, because xovi is tethered by design. Triple-press the power button if tripletap is installed (remagic sets it up), or run `ssh root@10.11.99.1 "bash /home/root/xovi/start"`.
-- **After a reMarkable OS update**, take the new ferrari aarch64 toolchain link from [developer.remarkable.com/links](https://developer.remarkable.com/links), rebuild with `OS_VERSION=x.y.z.w SDK_URL=<link> bash build-paperpro.sh` (or update the version and cache key in the workflow), redeploy, and rerun the hashtable step.
+- **After a reMarkable OS update**, take the new ferrari toolchain link for your build machine (x86_64 on a PC) from [developer.remarkable.com/links](https://developer.remarkable.com/links), rebuild with `OS_VERSION=x.y.z.w SDK_URL=<link> bash build-paperpro.sh` (or update the version and cache key in the workflow), redeploy, and rerun the hashtable step.
 - **Settings:** change the model with `configure.sh --model claude-haiku-5-5`, the timezone with `configure.sh --timezone +09:30`, and set up Gmail with `configure.sh --gmail` (see INSTALL.md section 8). Each keeps the other settings. The scripts live in `/home/root/.config/ink-diary/`.
 - **Remove:** `ssh root@10.11.99.1 "sh /home/root/ink-diary-claude/uninstall.sh && bash /home/root/xovi/start"`. The helper extensions stay, since other extensions may use them. The API key stays in `/home/root/.config/ink-diary/config.json`; delete that file to remove it.
 

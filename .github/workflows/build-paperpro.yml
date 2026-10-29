@@ -29,8 +29,8 @@ jobs:
       - name: Cache the reMarkable SDK installer
         uses: actions/cache@v4
         with:
-          path: ~/rm-sdk/ferrari-3.28.0.172-toolchain.sh
-          key: ferrari-sdk-installer-3.28.0.172
+          path: ~/rm-sdk/ferrari-3.28.0.172-x86_64-toolchain.sh
+          key: ferrari-sdk-installer-3.28.0.172-x86_64
       - name: Build and bundle
         run: |
           set -o pipefail

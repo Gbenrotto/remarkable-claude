@@ -10,14 +10,17 @@
 # the case-insensitive Windows drive (the repo's VERSION file would shadow the C++ <version>
 # header), and gives the archive proper Linux file modes.
 #
-# For another OS version, take the ferrari aarch64 toolchain link for it from
-# https://developer.remarkable.com/links and run:  OS_VERSION=x.y.z.w SDK_URL=<link> bash build-paperpro.sh
+# For another OS version, take the ferrari toolchain link for your build machine (x86_64 on a PC)
+# from https://developer.remarkable.com/links and run:  OS_VERSION=x.y.z.w SDK_URL=<link> bash build-paperpro.sh
 set -euo pipefail
 here=$(cd -- "$(dirname -- "$0")" && pwd)
 OS_VERSION=${OS_VERSION:-3.28.0.172}
-SDK_URL=${SDK_URL:-https://storage.googleapis.com/remarkable-codex-toolchain/3.28.0.172/remarkable-production-image-5.8.203-ferrari-public-aarch64-toolchain.sh}
+# The arch in the toolchain filename is the BUILD machine's (x86_64 for PCs and GitHub runners);
+# every variant produces aarch64 binaries for the Paper Pro.
+HOST_ARCH=$(uname -m)
+SDK_URL=${SDK_URL:-https://storage.googleapis.com/remarkable-codex-toolchain/3.28.0.172/remarkable-production-image-5.8.203-ferrari-public-$HOST_ARCH-toolchain.sh}
 SDK_DIR=${SDK_DIR:-$HOME/rm-sdk/ferrari-$OS_VERSION}
-SDK_INSTALLER=${SDK_INSTALLER:-$HOME/rm-sdk/ferrari-$OS_VERSION-toolchain.sh}
+SDK_INSTALLER=${SDK_INSTALLER:-$HOME/rm-sdk/ferrari-$OS_VERSION-$HOST_ARCH-toolchain.sh}
 WORK=${WORK:-$HOME/ink-diary-build}
 EXPECT_ARCH=${EXPECT_ARCH:-ARM aarch64}     # what `file` must report for the built binaries
 # Pinned inputs, so a build today and a build next month produce the same thing.
@@ -46,7 +49,7 @@ mkdir -p "$WORK"
 
 if [ "${1:-}" != --bundle ]; then
     [ "$(uname -s)" = Linux ] || { echo 'Run this on Linux or in WSL (Ubuntu).'; exit 1; }
-    [ "$(uname -m)" = x86_64 ] || echo "Note: the reMarkable SDK installer is built for x86_64 hosts; this is $(uname -m)."
+    case "$HOST_ARCH" in x86_64|aarch64) ;; *) echo "reMarkable publishes SDKs for x86_64 and aarch64 build machines only; this is $HOST_ARCH."; exit 1;; esac
 
     say 'Build tools'
     if need apt-get; then
