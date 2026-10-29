@@ -29,11 +29,13 @@ RMSHOT_URL=https://github.com/rmitchellscott/rm-shot/releases/download/v1.2.0/rm
 RMSHOT_SHA=1526fb4a0582c26801afc2861eeafd651286ef0f23bbdb372700dd025f66f786
 
 say() { printf '\n==> %s\n' "$*"; }
+# Progress bar on a terminal; one line per file in CI logs.
+if [ -t 2 ]; then WGET=(wget -q --show-progress); else WGET=(wget -nv); fi
 need() { command -v "$1" >/dev/null 2>&1; }
 git_here() { git -C "$here" -c safe.directory="$here" "$@"; }   # Windows-drive checkouts can look "dubious" to WSL git
 fetch() { # fetch URL DEST SHA256
     if [ -f "$2" ] && echo "$3  $2" | sha256sum -c --quiet - >/dev/null 2>&1; then echo "  $(basename "$2"): already downloaded"; return; fi
-    wget -q --show-progress -O "$2.part" "$1"
+    "${WGET[@]}" -O "$2.part" "$1"
     mv "$2.part" "$2"
     echo "$3  $2" | sha256sum -c --quiet - || { echo "Checksum mismatch for $2; delete it and retry, or check the pinned version."; exit 1; }
 }
@@ -64,7 +66,7 @@ if [ "${1:-}" != --bundle ]; then
         mkdir -p "$(dirname "$SDK_INSTALLER")"
         if [ ! -f "$SDK_INSTALLER" ]; then
             echo "  downloading $SDK_URL"
-            wget -q --show-progress -O "$SDK_INSTALLER.part" "$SDK_URL"
+            "${WGET[@]}" -O "$SDK_INSTALLER.part" "$SDK_URL"
             mv "$SDK_INSTALLER.part" "$SDK_INSTALLER"
         fi
         chmod +x "$SDK_INSTALLER"
