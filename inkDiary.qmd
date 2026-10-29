@@ -1,4 +1,4 @@
-; Ink Diary for Claude — notebook button (reMarkable 2).
+; Ink Diary for Claude — notebook button (reMarkable 2 and Paper Pro; same DocumentView selectors on OS 3.28).
 ; DocumentView selector from rmitchellscott/xovi-qmd-extensions (GPL-3.0-only).
 AFFECT [[1224665461898798997]]
     IMPORT QtQuick 2.15
@@ -9,9 +9,10 @@ AFFECT [[1224665461898798997]]
             Rectangle {
                 id: inkDiaryControl
                 z: 10000
-                // Framed button centred in the toolbar cell under the close button (rM2
-                // portrait toolbar: 112 px cells). diary.cpp masks this rect out of
-                // the page capture.
+                // Framed button centred in the toolbar cell under the close button
+                // (portrait toolbar: 112 px cells on both the rM2 and the Paper Pro, which
+                // share the QML and nearly the same pixel density). layout.h masks this
+                // rect out of the page capture, so keep these margins and layout.h in step.
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.topMargin: 138

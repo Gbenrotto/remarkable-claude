@@ -2,6 +2,17 @@
 
 Changes in this fork relative to [mmoscat/remarkable-chatgpt](https://github.com/mmoscat/remarkable-chatgpt) (Ink Diary 4.1).
 
+## Paper Pro port (branch paperpro, 2026-10-29)
+
+- Screen geometry follows the captured screen size: reMarkable 2 (1404 × 1872) and Paper Pro (1620 × 2160), portrait. Toolbar, button cells and margins keep their pixel sizes; the page area and answer budget grow with the screen (`src/layout.h`).
+- The ink search leaves the masked button cells out of its template statistics, so a ruled template no longer counts as ink where the buttons cut a rule (affects both tablets).
+- `diary_probe` reports the detected device, capture area and button rectangles; `diary_send` is now exported in the version script like the other entry points.
+- Timezones accept fixed offsets such as `+09:30` for tablets without zone data; `configure.sh` asks for the timezone, validates it, and offers `--timezone`.
+- `install.sh` accepts a Paper Pro (aarch64, "ferrari"), refuses binaries built for the other tablet, and installs the helper extensions from the bundle when Vellum is absent (remagic setups), stopping on any failed copy.
+- `build-paperpro.sh` (Linux/WSL) compiles against the ferrari SDK with pinned xovi tooling and checksum-pinned helper extensions, staging everything outside the checkout; the bundle carries its own SHA256SUMS of exactly what ships.
+- `deploy-paperpro.ps1` deploys from Windows over USB, from a local build or the GitHub Actions artifact, configuring only on first install so Gmail and other settings survive redeploys.
+- GitHub Actions workflow builds the bundle and runs the host tests; `tests/paperpro.cpp` simulates a tap on both tablets; `.gitattributes` keeps LF line endings on every platform.
+
 ## 2026-10-25
 
 ### Claude instead of OpenAI

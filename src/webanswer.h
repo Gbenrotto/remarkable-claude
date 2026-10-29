@@ -9,9 +9,21 @@
 #include <algorithm>
 struct DiarySource {QString title,url;};
 struct DiaryWebAnswer {QString text;QVector<DiarySource> sources;QString checkedAt;};
+// zone: an IANA name when the tablet has that zone's data, or a fixed offset such as "+09:30"
+// (exact for zones without daylight saving, e.g. Australia/Darwin) when it does not.
+inline QTimeZone diaryTimeZone(const QString &zone) {
+    static const QRegularExpression fixed(R"(^([+-])(\d{1,2}):?([0-5]\d)$)");
+    auto m=fixed.match(zone.trimmed());
+    if(m.hasMatch()) {
+        int seconds=(m.captured(2).toInt()*60+m.captured(3).toInt())*60;
+        if(seconds>14*3600) return QTimeZone();
+        return QTimeZone(m.captured(1)=="-" ? -seconds : seconds);
+    }
+    return QTimeZone(zone.toUtf8());
+}
 inline QString diaryLocalClock(const QDateTime &utc,const QString &zone="America/New_York") {
-    QTimeZone tz(zone.toUtf8());
-    if(!tz.isValid() || !utc.isValid())throw std::runtime_error("Invalid local timezone or clock");
+    QTimeZone tz=diaryTimeZone(zone);
+    if(!tz.isValid() || !utc.isValid())throw std::runtime_error("Invalid local timezone or clock (set timezone to an IANA name the tablet knows, or a fixed offset like +09:30)");
     auto local=utc.toTimeZone(tz);
     return local.toString("yyyy-MM-dd hh:mm AP t")+" ("+zone+", "+local.toString(Qt::ISODate)+")";
 }

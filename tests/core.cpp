@@ -35,6 +35,48 @@ int main(int argc,char **argv) {
     screen.setPixelColor(500,1700,Qt::black);
     screen.setPixelColor(1350,1830,Qt::black); // Bottom-right button is excluded.
     assert(lastInkRow(screen.copy(captureArea))+captureArea.y()==1700);
+    // The default-argument geometry above is the unchanged reMarkable 2 production crop.
+    assert(diaryCaptureArea(diaryRm2Screen())==captureArea && diaryAnswerBudget(diaryRm2Screen())==1582);
+    assert(diarySupportedScreen(diaryRm2Screen()) && diarySupportedScreen(diaryPaperProScreen()));
+    for(QSize bad:{QSize(1872,1404),QSize(2160,1620),QSize(954,1696),QSize(768,1024)}) assert(!diarySupportedScreen(bad));
+    assert(QString(diaryScreenName(diaryPaperProScreen()))=="reMarkable Paper Pro");
+    {   // Paper Pro (1620 x 2160): same toolbar/button pixel sizes, larger page area.
+        const QSize pro=diaryPaperProScreen();
+        const QRect proArea=diaryCaptureArea(pro);
+        assert(proArea==QRect(150,0,1390,2040));
+        assert(proArea.right()==1539 && proArea.bottom()==2039);          // inside the screen
+        assert(diaryButtonRect(pro)==QRect(1508,112,112,112));            // flush with the right edge
+        assert(diaryButtonRect(pro).right()==1619);
+        assert(diarySendButtonRect(pro)==QRect(1396,112,124,112));
+        assert(diarySendButtonRect(pro).right()-diaryButtonRect(pro).left()==diarySendButtonRect().right()-diaryButtonRect().left()); // same overlap as the rM2
+        assert(diaryAnswerBudget(pro)==1870);
+        // The QMD anchors the 60 px button at topMargin 138 / rightMargin 26; it must sit inside the masked cell.
+        const QRect qmlButton(pro.width()-26-60,138,60,60);
+        assert(diaryButtonRect(pro).contains(qmlButton));
+        const QRect qmlSend(qmlButton.left()-16-110,qmlButton.center().y()-30,110,60);
+        assert(diarySendButtonRect(pro).contains(qmlSend));
+        // Masking removes both buttons from a Paper Pro capture, including its colour framebuffer.
+        QImage proScreen(pro,QImage::Format_RGB32);proScreen.fill(Qt::white);
+        {QPainter p(&proScreen);p.fillRect(qmlButton,Qt::black);p.fillRect(qmlSend,QColor(0,0,255));}
+        diaryMaskControls(proScreen);
+        assert(proScreen.pixelColor(qmlButton.center())==QColor(Qt::white));
+        assert(proScreen.pixelColor(qmlSend.center())==QColor(Qt::white));
+        assert(lastInkRow(proScreen.copy(proArea))==-1);
+        // Ink anywhere in the larger page area is found, in black or in the Paper Pro's colour inks.
+        proScreen.setPixelColor(300,0,Qt::black);          assert(lastInkRow(proScreen.copy(proArea))==0);
+        proScreen.setPixelColor(1500,1200,QColor(0,0,255)); assert(lastInkRow(proScreen.copy(proArea))==1200);  // blue pen
+        proScreen.setPixelColor(800,1500,QColor(220,0,0));  assert(lastInkRow(proScreen.copy(proArea))==1500);  // red pen
+        proScreen.setPixelColor(800,2039,Qt::black);        assert(lastInkRow(proScreen.copy(proArea))==2039);  // last captured row
+        proScreen.setPixelColor(800,2100,Qt::black);        assert(lastInkRow(proScreen.copy(proArea))==2039);  // bottom margin excluded
+        proScreen.setPixelColor(100,500,Qt::black);         assert(lastInkRow(proScreen.copy(proArea))==2039);  // toolbar column excluded
+        proScreen.setPixelColor(1560,2000,Qt::black);       assert(lastInkRow(proScreen.copy(proArea))==2039);  // right strip excluded
+        // A ruled template drawn across the full Paper Pro width is still ignored.
+        QImage proRuled(proArea.size(),QImage::Format_RGB32);proRuled.fill(Qt::white);
+        for(int y=20;y<proRuled.height();y+=62) for(int x=0;x<proRuled.width();++x) proRuled.setPixelColor(x,y,QColor(180,180,180));
+        for(int y=0;y<proRuled.height();++y) proRuled.setPixelColor(96,y,QColor(180,180,180));
+        assert(lastInkRow(proRuled)==-1);
+        proRuled.setPixelColor(700,1800,Qt::black);assert(lastInkRow(proRuled)==1800);
+    }
     QImage page(1174,1582,QImage::Format_RGB32); page.fill(Qt::white);
     assert(lastInkRow(page)==-1);
     page.setPixelColor(500,420,Qt::black); assert(lastInkRow(page)==420);

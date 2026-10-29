@@ -167,19 +167,19 @@ void work(bool sendMode) {
         // Let the button switch to its stable busy appearance before capture.
         QThread::msleep(800);
         auto screen=capture(temp.path()+"/question.png");
-        require(screen.width()==1404 && screen.height()==1872,
-                "First version requires rM2 portrait (1404 x 1872)");
+        require(diarySupportedScreen(screen.size()),
+                "Requires a reMarkable 2 (1404 x 1872) or Paper Pro (1620 x 2160) in portrait");
         QSize canvas;
         runOnGuiSync([&] {canvas=activeCanvasSize();});
         require(canvas==screen.size(), "Screen/input coordinates differ; refusing to draw");
-        const QRect area=diaryCaptureArea();
+        const QRect area=diaryCaptureArea(screen.size());
         QImage question=screen.copy(area);
-        int last=lastInkRow(question);
+        int last=lastInkRow(question,diaryMaskedInCapture(screen.size()));
         require(last>=0, "Write a question on a blank page first");
         int top=area.y()+last+45;
         // Native scene images can extend below the current viewport. Render at
         // a fixed readable size, independent of empty space on screen.
-        int width=area.width(), available=1582;
+        int width=area.width(), available=diaryAnswerBudget(screen.size());
         std::function<void()> afterInsert;QString emailDone;
         DiaryAnswer resultAnswer;
         if(sendMode) {
@@ -399,5 +399,14 @@ extern "C" char *diary_probe(const char *arg) {
         }
     });
     result.insert("nativeImageInsertAvailable",imageSupport);result.insert("screenMappingAvailable",mapping);
+    // Geometry the plugin will use for this screen, so a wrong fit is visible before the first tap.
+    QSize canvas;runOnGuiSync([&]{canvas=activeCanvasSize();});
+    auto rect=[](const QRect &r){return QJsonObject{{"x",r.x()},{"y",r.y()},{"width",r.width()},{"height",r.height()}};};
+    result.insert("device",diaryScreenName(canvas));
+    result.insert("supportedScreen",diarySupportedScreen(canvas));
+    result.insert("captureArea",rect(diaryCaptureArea(canvas)));
+    result.insert("buttonRect",rect(diaryButtonRect(canvas)));
+    result.insert("sendButtonRect",rect(diarySendButtonRect(canvas)));
+    result.insert("answerBudget",diaryAnswerBudget(canvas));
     return response(result);
 }

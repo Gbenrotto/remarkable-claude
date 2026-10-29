@@ -1,22 +1,46 @@
 #pragma once
 #include <QImage>
 #include <QRect>
-// Include the top edge; only the side toolbar and bottom button margins are excluded.
-inline QRect diaryCaptureArea() { return QRect(150,0,1174,1752); }
-// The Claude button (inkDiary.qmd): one toolbar cell under the close button.
-inline QRect diaryButtonRect() { return QRect(1292,112,112,112); }
+#include <QSize>
+#include <QList>
+#include <array>
+#include <vector>
+#include <algorithm>
+// Supported portrait screens. The reMarkable 2 and the Paper Pro run the same notebook
+// QML at almost the same pixel density (226 vs 229 ppi), so the toolbar, the close button
+// cell and the bottom margin keep their pixel sizes; only the page area grows.
+inline QSize diaryRm2Screen() { return QSize(1404,1872); }
+inline QSize diaryPaperProScreen() { return QSize(1620,2160); }
+inline bool diarySupportedScreen(const QSize &screen) { return screen==diaryRm2Screen() || screen==diaryPaperProScreen(); }
+inline const char *diaryScreenName(const QSize &screen) {
+    return screen==diaryPaperProScreen() ? "reMarkable Paper Pro" : screen==diaryRm2Screen() ? "reMarkable 2" : "unsupported screen";
+}
+// Include the top edge; only the side toolbar (150 px) and bottom button margin (120 px)
+// are excluded, plus an 80 px strip on the right under our own button column.
+inline QRect diaryCaptureArea(const QSize &screen=diaryRm2Screen()) { return QRect(150,0,screen.width()-230,screen.height()-120); }
+// The Claude button (inkDiary.qmd): one toolbar cell under the close button, anchored top-right.
+inline QRect diaryButtonRect(const QSize &screen=diaryRm2Screen()) { return QRect(screen.width()-112,112,112,112); }
 // The Send button (inkDiary.qmd) appears left of it while email drafts are pending.
-inline QRect diarySendButtonRect() { return QRect(1180,112,124,112); }
+inline QRect diarySendButtonRect(const QSize &screen=diaryRm2Screen()) { return QRect(screen.width()-224,112,124,112); }
+// Vertical pixel budget for one answer image: everything below the question, less the margins.
+inline int diaryAnswerBudget(const QSize &screen=diaryRm2Screen()) { return screen.height()-290; }
 // Keep our own buttons out of the page photo, the ink search and the unchanged-page check.
 inline void diaryMaskControls(QImage &screen) {
-    for(const QRect &r:{diaryButtonRect(),diarySendButtonRect()})
+    for(const QRect &r:{diaryButtonRect(screen.size()),diarySendButtonRect(screen.size())})
         for(int y=r.top();y<=r.bottom()&&y<screen.height();++y)
             for(int x=r.left();x<=r.right()&&x<screen.width();++x)
                 screen.setPixelColor(x,y,Qt::white);
 }
-#include <array>
-#include <vector>
-#include <algorithm>
+// The masked cells, in the coordinates of a capture-area crop, so the ink search can leave
+// them out of its template-rule statistics instead of seeing a rule cut short by white.
+inline QList<QRect> diaryMaskedInCapture(const QSize &screen) {
+    QList<QRect> out;const QRect area=diaryCaptureArea(screen);
+    for(const QRect &r:{diaryButtonRect(screen),diarySendButtonRect(screen)}) {
+        QRect inside=r.intersected(area);
+        if(!inside.isEmpty()) out.append(inside.translated(-area.topLeft()));
+    }
+    return out;
+}
 // A pale, nearly uniform full-width/height line is a template rule.
 // Keep darker strokes on that line, and never filter black rules/content.
 inline int ruleThreshold(const std::array<int,256> &histogram, int length) {
@@ -26,18 +50,29 @@ inline int ruleThreshold(const std::array<int,256> &histogram, int length) {
     for(int i=std::max(0,mode-8);i<=std::min(255,mode+8);++i) uniform+=histogram[i];
     return uniform*100>=length*90 ? mode-40 : 210;
 }
-inline int lastInkRow(const QImage &source) {
+// ignore: regions (our own buttons) that are neither ink nor evidence about the template.
+inline int lastInkRow(const QImage &source, const QList<QRect> &ignore={}) {
     if(source.isNull()) return -1;
     QImage image=source.convertToFormat(QImage::Format_RGB32);
-    std::vector<int> rows(image.height(),210),columns(image.width(),210);
-    std::vector<std::array<int,256>> colHist(image.width());
-    for(int y=0;y<image.height();++y) {
+    const int W=image.width(),H=image.height();
+    std::vector<unsigned char> skip(size_t(W)*H,0);
+    std::vector<int> rowLength(H,W),colLength(W,H);
+    for(const QRect &r:ignore) {
+        const QRect c=r.intersected(image.rect());
+        for(int y=c.top();y<=c.bottom();++y) for(int x=c.left();x<=c.right();++x) {
+            unsigned char &s=skip[size_t(y)*W+x];
+            if(!s) {s=1;--rowLength[y];--colLength[x];}
+        }
+    }
+    std::vector<int> rows(H,210),columns(W,210);
+    std::vector<std::array<int,256>> colHist(W);
+    for(int y=0;y<H;++y) {
         std::array<int,256> hist{};
         const QRgb *pixels=reinterpret_cast<const QRgb *>(image.constScanLine(y));
-        for(int x=0;x<image.width();++x) {int gray=qGray(pixels[x]);++hist[gray];++colHist[x][gray];}
-        rows[y]=ruleThreshold(hist,image.width());
+        for(int x=0;x<W;++x) {if(skip[size_t(y)*W+x]) continue;int gray=qGray(pixels[x]);++hist[gray];++colHist[x][gray];}
+        rows[y]=rowLength[y]>0 ? ruleThreshold(hist,rowLength[y]) : 210;
     }
-    for(int x=0;x<image.width();++x) columns[x]=ruleThreshold(colHist[x],image.height());
+    for(int x=0;x<W;++x) columns[x]=colLength[x]>0 ? ruleThreshold(colHist[x],colLength[x]) : 210;
     // An opaque plot can hide the middle of a template margin. Recognize
     // remaining long, thin pale segments rather than demanding a full-height
     // line. Keep this fallback vertical-only so pale handwritten text survives.
@@ -48,6 +83,7 @@ inline int lastInkRow(const QImage &source) {
         int mode=100+int(std::max_element(hist.begin()+100,hist.begin()+210)-(hist.begin()+100));
         int count=0,run=0,longest=0;
         for(int y=0;y<image.height();++y) {
+            if(skip[size_t(y)*W+x]) continue;
             int gray=qGray(image.pixel(x,y));
             if(std::abs(gray-mode)<=8) ++count;
             // Horizontal rule intersections darken the same vertical line.
@@ -66,6 +102,7 @@ inline int lastInkRow(const QImage &source) {
     for(int y=image.height()-1;y>=0;--y) {
         const QRgb *pixels=reinterpret_cast<const QRgb *>(image.constScanLine(y));
         for(int x=0;x<image.width();++x) {
+            if(skip[size_t(y)*W+x]) continue;
             int threshold=std::min(rows[y],columns[x]);
             // Two translucent rules darken where they cross (e.g. 191 -> 143).
             if(rows[y]<210 && columns[x]<210)

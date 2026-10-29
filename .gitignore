@@ -22,9 +22,11 @@ answers/
 captures/
 *.log
 
-# Local release archives
+# Local release archives and downloaded dependencies
 *.tar.gz
 *.zip
+/dist/
+/deps/
 .superpowers/
 
 # The instruction notebook is built from docs/notebook/build.py

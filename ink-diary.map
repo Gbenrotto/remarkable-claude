@@ -1,1 +1,1 @@
-{ global: LINKTABLENAMES; LINKTABLEVALUES; METADATAVALUES; Environment; EXTENSIONVERSION; _xovi_shouldLoad; _xovi_depconstruct; diary_start; diary_status; diary_cancel; diary_probe; local: *; };
+{ global: LINKTABLENAMES; LINKTABLEVALUES; METADATAVALUES; Environment; EXTENSIONVERSION; _xovi_shouldLoad; _xovi_depconstruct; diary_start; diary_status; diary_cancel; diary_probe; diary_send; local: *; };

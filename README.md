@@ -1,6 +1,12 @@
-# Ink Diary for Claude — reMarkable 2
+# Ink Diary for Claude — reMarkable 2 and Paper Pro
 
-A fork of [mmoscat/remarkable-chatgpt](https://github.com/mmoscat/remarkable-chatgpt) (Ink Diary 4.1) that talks to Anthropic's Claude instead of OpenAI.
+Write a question in your notebook, tap the Claude button, and the answer lands on the page in handwriting. Plots, flowcharts, Venn diagrams, calendars, checklists, web search with citations, and Gmail triage with handwritten replies, all from the pen, with no companion computer after setup.
+
+**This fork brings Ink Diary to the reMarkable Paper Pro.** The upstream project targets the reMarkable 2; this branch adds a 64-bit build, the Paper Pro's 1620 × 2160 screen, an installer that works on remagic-based setups, Windows-friendly build and deploy scripts, and a simulated end-to-end test on both tablets. Start with **[INSTALL-PAPER-PRO.md](INSTALL-PAPER-PRO.md)**. The reMarkable 2 remains fully supported through [INSTALL.md](INSTALL.md).
+
+Status, honestly: the Paper Pro port passes the whole host test-suite, and the first run on a real tablet is the next milestone. If you try it, an issue with the output of the probe command in the install guide is the most useful thing you can send.
+
+Lineage: [mmoscat/remarkable-chatgpt](https://github.com/mmoscat/remarkable-chatgpt) (Ink Diary 4.1) → [jonaslaberg/remarkable-claude](https://github.com/jonaslaberg/remarkable-claude) (Claude API port) → this repository (Paper Pro). GPL-3.0-only throughout; see LICENSE and THIRD_PARTY.md.
 
 **Installation and configuration: [INSTALL.md](INSTALL.md).**
 

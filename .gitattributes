@@ -1,0 +1,6 @@
+# Everything here ends up on a Linux tablet or a Linux build host: keep LF on every platform,
+# including Windows checkouts, so checksums and shell scripts survive a clone on Windows.
+* text=auto eol=lf
+*.ttf binary
+*.so binary
+bin/* binary

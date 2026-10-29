@@ -1,0 +1,41 @@
+# Builds the Paper Pro (aarch64, OS 3.28.0.172) plugin on GitHub's Linux runners, so no Linux
+# machine is needed at home. Download the "ink-diary-paperpro" artifact from the run page and
+# pass the zip to deploy-paperpro.ps1 with -Bundle.
+# On a fresh fork, GitHub keeps workflows off until you enable them on the Actions tab.
+name: Build for reMarkable Paper Pro
+on:
+  push:
+    branches: [paperpro, main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: build-paperpro-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Host tests (Qt 6, x86_64)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qt6-base-dev libqt6svg6-dev >/dev/null
+          bash test.sh
+          node tests/append.cjs
+      # Only the 1 GB installer is cached; unpacking it takes about a minute.
+      - name: Cache the reMarkable SDK installer
+        uses: actions/cache@v4
+        with:
+          path: ~/rm-sdk/ferrari-3.28.0.172-toolchain.sh
+          key: ferrari-sdk-installer-3.28.0.172
+      - name: Build and bundle
+        run: bash build-paperpro.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ink-diary-paperpro
+          path: dist/ink-diary-paperpro.tar.gz
+          if-no-files-found: error
+          retention-days: 30
