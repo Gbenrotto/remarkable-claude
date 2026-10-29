@@ -9,7 +9,7 @@
   - `deps/xovi-aarch64.tar.gz`: [asivery/rm-xovi-extensions](https://github.com/asivery/rm-xovi-extensions) release `v19-23052026` (source: [tag v19-23052026](https://github.com/asivery/rm-xovi-extensions/tree/v19-23052026)), GPL-3.0. install.sh uses `xovi-message-broker`, `framebuffer-spy`, `qt-resource-rebuilder` and `rebuild_hashtable` from it.
   - `deps/rm-shot-aarch64.so`: [rmitchellscott/rm-shot](https://github.com/rmitchellscott/rm-shot) release `v1.2.0` (source: [tag v1.2.0](https://github.com/rmitchellscott/rm-shot/tree/v1.2.0)), GPL-3.0.
 
-New code in this project is GPL-3.0-only. The bundled LICENSE retains the upstream attribution and full license text.
+New code in this project is GPL-3.0-only. NOTICE retains the upstream copyright and attribution notice; LICENSE is the full, unmodified GNU GPL version 3 text.
 
 - Button icon (`icons/claude.svg`): a generic asterisk drawn for this fork, not a brand logo. The upstream OpenAI icon (Simple Icons, CC0-1.0) was removed.
 

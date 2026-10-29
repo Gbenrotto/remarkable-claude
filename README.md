@@ -6,7 +6,7 @@ Write a question in your notebook, tap the Claude button, and the answer lands o
 
 Status, honestly: the Paper Pro port passes the whole host test-suite, and the first run on a real tablet is the next milestone. If you try it, an issue with the output of the probe command in the install guide is the most useful thing you can send.
 
-Lineage: [mmoscat/remarkable-chatgpt](https://github.com/mmoscat/remarkable-chatgpt) (Ink Diary 4.1) → [jonaslaberg/remarkable-claude](https://github.com/jonaslaberg/remarkable-claude) (Claude API port) → this repository (Paper Pro). GPL-3.0-only throughout; see LICENSE and THIRD_PARTY.md.
+Lineage: [mmoscat/remarkable-chatgpt](https://github.com/mmoscat/remarkable-chatgpt) (Ink Diary 4.1) → [jonaslaberg/remarkable-claude](https://github.com/jonaslaberg/remarkable-claude) (Claude API port) → this repository (Paper Pro). GPL-3.0-only throughout; see LICENSE, NOTICE and THIRD_PARTY.md.
 
 **Installation and configuration: [INSTALL.md](INSTALL.md).**
 

@@ -18,16 +18,19 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Host tests (Qt 6, x86_64)
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq qt6-base-dev libqt6svg6-dev >/dev/null
           bash test.sh
           node tests/append.cjs
+      - name: Committed SHA256SUMS matches the files
+        run: |
+          sha256sum -c --quiet SHA256SUMS || { echo "::error::SHA256SUMS is stale; run make-sums.sh and commit"; exit 1; }
       # Only the 1 GB installer is cached; unpacking it takes about a minute.
       - name: Cache the reMarkable SDK installer
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/rm-sdk/ferrari-3.28.0.172-x86_64-toolchain.sh
           key: ferrari-sdk-installer-3.28.0.172-x86_64
@@ -43,7 +46,19 @@ jobs:
             grep -v -E '^ *[0-9]+K [. ]+' build.log | tail -n 40 | cut -c1-160 | sed -e 's/%/%25/g' -e 's/\r//g' | awk 'BEGIN{ORS="%0A"} {print}' > tail.txt
             echo "::error title=build-paperpro.sh failed::$(cat tail.txt)"
           fi
-      - uses: actions/upload-artifact@v4
+      # Facts about the shipped binaries, as a notice annotation readable on the run page.
+      - name: Report what was built
+        run: |
+          s=~/ink-diary-build/stage
+          {
+            echo "plugin: $(file -b $s/bin/ink-diary.so | cut -d, -f1-2)"
+            echo "config-model: $(file -b $s/bin/config-model | cut -d, -f1-2)"
+            echo "entry points: $(readelf --dyn-syms -W $s/bin/ink-diary.so | awk '$7!="UND" && $8 ~ /^(diary_|_xovi_)/ {print $8}' | sort | tr '\n' ' ')"
+            echo "links: $(readelf -d $s/bin/ink-diary.so | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p' | tr '\n' ' ')"
+            echo "bundle: $(sha256sum dist/ink-diary-paperpro.tar.gz | cut -c1-16) $(du -h dist/ink-diary-paperpro.tar.gz | cut -f1), $(wc -l < $s/SHA256SUMS) files"
+          } | tee report.txt
+          echo "::notice title=Paper Pro build::$(sed -e 's/%/%25/g' report.txt | awk 'BEGIN{ORS="%0A"} {print}')"
+      - uses: actions/upload-artifact@v7
         with:
           name: ink-diary-paperpro
           path: dist/ink-diary-paperpro.tar.gz
