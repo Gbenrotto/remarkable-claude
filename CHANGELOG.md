@@ -2,6 +2,12 @@
 
 Changes in this fork relative to [mmoscat/remarkable-chatgpt](https://github.com/mmoscat/remarkable-chatgpt) (Ink Diary 4.1).
 
+## Paper Pro: confirmed working (2026-11-02)
+
+- First live run on a Paper Pro with OS 3.29.1.0: handwritten question, web search, answer and sources inserted on the page. Details in VALIDATION.md.
+- install.sh and the deploy script read the OS version from /etc/os-release when update.conf is absent (OS 3.29), and the version check can no longer stop the install.
+- New health check: `diagnose-paperpro.ps1` (Windows) / `tools/diagnose.sh` (tablet) reports versions, active extensions, whether the plugin is loaded, recent errors and whether the saved API key looks valid, without printing it.
+
 ## Paper Pro port (branch paperpro, 2026-10-29)
 
 - Screen geometry follows the captured screen size: reMarkable 2 (1404 × 1872) and Paper Pro (1620 × 2160), portrait. Toolbar, button cells and margins keep their pixel sizes; the page area and answer budget grow with the screen (`src/layout.h`).

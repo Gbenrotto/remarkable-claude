@@ -4,7 +4,7 @@ Write a question in your notebook, tap the Claude button, and the answer lands o
 
 **This fork brings Ink Diary to the reMarkable Paper Pro.** The upstream project targets the reMarkable 2; this branch adds a 64-bit build, the Paper Pro's 1620 × 2160 screen, an installer that works on remagic-based setups, Windows-friendly build and deploy scripts, and a simulated end-to-end test on both tablets. Start with **[INSTALL-PAPER-PRO.md](INSTALL-PAPER-PRO.md)**. The reMarkable 2 remains fully supported through [INSTALL.md](INSTALL.md).
 
-Status, honestly: the Paper Pro port passes the whole host test-suite, and the first run on a real tablet is the next milestone. If you try it, an issue with the output of the probe command in the install guide is the most useful thing you can send.
+**Status: it works on a real Paper Pro.** First confirmed on 2 November 2026 on OS 3.29.1.0: a handwritten question, one tap, and a web-searched answer with sources written back onto the page. The plugin is built with the 3.28.0.172 SDK and loads unchanged on 3.29.1.0. Tried it on your tablet? Open an issue with the output of `diagnose-paperpro.ps1`, working or not, so the list of confirmed OS versions can grow.
 
 Lineage: [mmoscat/remarkable-chatgpt](https://github.com/mmoscat/remarkable-chatgpt) (Ink Diary 4.1) → [jonaslaberg/remarkable-claude](https://github.com/jonaslaberg/remarkable-claude) (Claude API port) → this repository (Paper Pro). GPL-3.0-only throughout; see LICENSE, NOTICE and THIRD_PARTY.md.
 

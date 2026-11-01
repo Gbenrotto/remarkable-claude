@@ -2,11 +2,11 @@
 
 This branch ports Ink Diary, written for the reMarkable 2, to the reMarkable Paper Pro. The upstream code assumed a 32-bit processor and a 1404 × 1872 screen. This port builds for the Paper Pro's 64-bit processor and 1620 × 2160 screen, keeps the same button position and page margins (both tablets run the same notebook interface at almost the same pixel density), and installs its helper extensions even on tablets set up with remagic rather than Vellum.
 
-**Status:** the port passes the host test-suite, including a simulated Paper Pro tap from screenshot to insertion coordinates. It has not yet run on a real tablet, so the first on-device run is the remaining test. Everything installs under `/home/root`, and a reboot (or `xovi/stock`) returns the tablet to standard behaviour.
+**Status: working on a real tablet.** Confirmed on a Paper Pro running OS 3.29.1.0 (2 November 2026): the button sits under the close button, a handwritten question is read, and the answer, including web search with sources, is written back onto the page. The build uses the 3.28.0.172 SDK, which loads unchanged on 3.29.1.0. Everything installs under `/home/root`, and a reboot (or `xovi/stock`) returns the tablet to standard behaviour.
 
 ## What you need
 
-- A reMarkable Paper Pro (not the Paper Pro Move) in developer mode, with xovi installed through remagic or Vellum. This build targets **OS 3.28.0.172**; check yours under Settings → General → Help → About.
+- A reMarkable Paper Pro (not the Paper Pro Move) in developer mode, with xovi installed through remagic or Vellum. Confirmed on **OS 3.29.1.0**; built against the 3.28.0.172 SDK. Check yours under Settings → General → Help → About.
 - The USB cable. Over USB the tablet answers SSH at `root@10.11.99.1`.
 - A Windows, macOS or Linux computer with `ssh` and `scp`. The deploy script is for Windows PowerShell; on macOS or Linux, follow "Deploy by hand".
 - Somewhere to compile the 64-bit plugin: **GitHub Actions** (nothing to install) or **Linux / WSL**. reMarkable only publishes its SDK for Linux; the first build downloads about 1 GB.
@@ -77,9 +77,19 @@ Then try `plot y = x^2`, `Create a flow diagram of making tea`, and `Search the 
 
 ## Troubleshooting
 
+### Start with the health check
+
+With the tablet on USB, run this from the checkout:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\diagnose-paperpro.ps1
+```
+
+It writes `diagnose-output.txt` next to the script: the OS version, which xovi extensions are active, whether the notebook app has actually loaded the plugin, recent errors, and what the plugin reports about the screen. It never prints your API key, only its length and whether it looks like an Anthropic API key (about 108 characters, starting `sk-ant-api03-`). A key that does not look right is the most common reason a tap fails. Run it with a notebook open so the page checks are meaningful. On macOS or Linux: `scp tools/diagnose.sh root@10.11.99.1: && ssh root@10.11.99.1 sh diagnose.sh`.
+
 ### The button is missing or in the wrong place
 
-The Paper Pro geometry is the one part that could not be verified without a tablet. Ask the plugin what it sees (PowerShell shown; in a macOS or Linux shell write `\$probe` instead of `` `$probe ``):
+The button position has been confirmed on OS 3.29.1.0, but a future OS update could move the toolbar. Ask the plugin what it sees (PowerShell shown; in a macOS or Linux shell write `\$probe` instead of `` `$probe ``):
 
 ```powershell
 ssh root@10.11.99.1 "echo '>eink-diary`$probe:' > /run/xovi-mb; cat /run/xovi-mb-out"

@@ -22,7 +22,8 @@ firmware=${firmware:-unknown}
 # Qt compatibility at load and probes the notebook app at runtime.
 case "$device:$firmware" in
     rm2:3.27.3.0) ;;
-    paperpro:3.28.0.172) echo 'Paper Pro port: first on-device validation is still pending; see INSTALL-PAPER-PRO.md.' ;;
+    paperpro:3.29.1.0) ;;   # confirmed on a Paper Pro, 2026-11-02 (built with the 3.28.0.172 SDK)
+    paperpro:3.28.0.172) ;; # the SDK version this build targets
     *) echo "Warning: Ink Diary has not been tested on OS $firmware for this tablet. Build bin/ink-diary.so with the SDK for this OS version."
        echo "If the notebook app misbehaves, run uninstall.sh and restart the UI." ;;
 esac

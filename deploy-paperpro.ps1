@@ -43,7 +43,7 @@ $info = ($lines -join "`n")
 $lines | ForEach-Object { Write-Host "  $_" }
 if ($info -notmatch "aarch64") { Write-Error "This is not a 64-bit tablet; the Paper Pro bundle will not load."; exit 1 }
 if ($info -match "xovi-missing") { Write-Error "xovi is not installed on the tablet. Run remagic setup (or install Vellum + xovi) first."; exit 1 }
-if ($info -notmatch "3\.28\.0\.172") { Write-Host "  Note: the bundle was built for OS 3.28.0.172; a different OS needs a rebuild with its SDK." -ForegroundColor Yellow }
+if ($info -notmatch "os 3\.(28\.0\.172|29\.1\.0)") { Write-Host "  Note: confirmed on OS 3.29.1.0 (built for 3.28.0.172). On another OS version it may need a rebuild with that version's SDK." -ForegroundColor Yellow }
 
 Step "Copying the bundle"
 scp $Bundle "${Tablet}:/home/root/ink-diary-paperpro.tar.gz"

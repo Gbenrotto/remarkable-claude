@@ -1,5 +1,18 @@
 # Validation status
 
+## reMarkable Paper Pro (2026-11-02)
+
+- Device: reMarkable Paper Pro ("ferrari", aarch64), OS 3.29.1.0, set up with remagic (xovi, AppLoad with KOReader); no Vellum.
+- Bundle: GitHub Actions build with the ferrari 3.28.0.172 SDK; aarch64 binaries, every file verified on the tablet against SHA256SUMS.
+- install.sh installed xovi-message-broker, framebuffer-spy and rm-shot from the bundle and kept the existing qt-resource-rebuilder; `rebuild_hashtable` ran; `xovi/start` loaded ink-diary.so into xochitl alongside AppLoad.
+- Probe: device "reMarkable Paper Pro", canvas 1620 × 2160, supported screen, capture area 150,0 1390 × 2040, button cell 1508,112.
+- Live test: a handwritten question ("When is the next election in Nigeria?") was read, routed to web search, and the answer with a numbered source and checked-at time was inserted below the writing. Button position and answer placement correct.
+- Found and fixed during the first deploy: OS 3.29 has no /usr/share/remarkable/update.conf, so the version is now read from /etc/os-release as well.
+- Not yet exercised on the Paper Pro: plots, diagrams, calendars, email, the Send button.
+
+## reMarkable 2 (upstream)
+
+
 - ARMv7 shared library compiled with the official 3.27-series reMarkable SDK.
 - Host tests passed: blank/occupied page boundaries, response parsing, incomplete/error/refusal handling, and handwriting font rendering.
 - Qt qmlformat parsed the inserted QML control successfully.
