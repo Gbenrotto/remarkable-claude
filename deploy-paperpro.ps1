@@ -35,7 +35,9 @@ function Remote($command) {
 }
 
 Step "Checking the tablet at $Tablet"
-$lines = ssh -o ConnectTimeout=10 $Tablet "uname -m; cat /sys/devices/soc0/machine 2>/dev/null; sed -n 's/^REMARKABLE_RELEASE_VERSION=//p' /usr/share/remarkable/update.conf; test -d /home/root/xovi && echo xovi-present || echo xovi-missing"
+# No double quotes inside remote commands: Windows PowerShell 5.1 mangles them when calling ssh.
+$check = 'uname -m; cat /sys/devices/soc0/machine 2>/dev/null; os=$(sed -n ''s/^IMG_VERSION=//p;s/^REMARKABLE_RELEASE_VERSION=//p'' /etc/os-release /usr/share/remarkable/update.conf 2>/dev/null | sed ''s/[^0-9.]//g'' | head -n 1); echo os ${os:-unknown}; test -d /home/root/xovi && echo xovi-present || echo xovi-missing'
+$lines = ssh -o ConnectTimeout=10 $Tablet $check
 if ($LASTEXITCODE -ne 0) { Write-Error "Cannot reach the tablet. Is it awake, connected over USB, and in developer mode?"; exit 1 }
 $info = ($lines -join "`n")
 $lines | ForEach-Object { Write-Host "  $_" }

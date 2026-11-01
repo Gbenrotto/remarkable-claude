@@ -21,7 +21,7 @@ On your computer, install a key so you don't need the password again:
 ssh-keygen -t ed25519 -f ~/.ssh/remarkable_ed25519 -N ""
 ssh-copy-id -i ~/.ssh/remarkable_ed25519.pub root@10.11.99.1     # enter the tablet password once
 printf 'Host remarkable\n  HostName 10.11.99.1\n  User root\n  IdentityFile ~/.ssh/remarkable_ed25519\n' >> ~/.ssh/config
-ssh remarkable 'grep RELEASE_VERSION /usr/share/remarkable/update.conf'
+ssh remarkable 'grep -h -E "RELEASE_VERSION|IMG_VERSION" /usr/share/remarkable/update.conf /etc/os-release 2>/dev/null'
 ```
 
 The commands below use the `remarkable` host alias.

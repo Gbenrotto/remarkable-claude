@@ -13,7 +13,11 @@ case "$arch:$machine" in
     aarch64:*chiappa*)        echo 'The reMarkable Paper Pro Move is not supported (different screen size)'; exit 1 ;;
     *) echo "Requires a reMarkable 2 or a reMarkable Paper Pro (found: $arch, '$machine')"; exit 1 ;;
 esac
-firmware=$(sed -n 's/^REMARKABLE_RELEASE_VERSION=//p' /usr/share/remarkable/update.conf)
+# OS version: older releases keep it in update.conf; newer ones (Paper Pro on 3.2x) only in
+# /etc/os-release as IMG_VERSION="x.y.z.w". Never fatal: it only selects a warning.
+firmware=$( { sed -n 's/^REMARKABLE_RELEASE_VERSION=//p' /usr/share/remarkable/update.conf; } 2>/dev/null || true)
+[ -n "$firmware" ] || firmware=$( { sed -n 's/^IMG_VERSION=//p' /etc/os-release | tr -d "\"'"; } 2>/dev/null || true)
+firmware=${firmware:-unknown}
 # Firmware versions this plugin has been run on. Others may work: the plugin checks
 # Qt compatibility at load and probes the notebook app at runtime.
 case "$device:$firmware" in
